@@ -8,9 +8,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="ADFL">
+<meta name="apple-mobile-web-app-title" content="Scoreboard">
 <link rel="apple-touch-icon" href="icon.png">
-<title>ADFL Scoreboard</title>
+<title>Scoreboard</title>
 <style>
 @font-face{font-family:Barlow;src:url(fonts/BarlowCondensed-SemiBold.ttf);font-weight:600;font-display:block}
 @font-face{font-family:Barlow;src:url(fonts/BarlowCondensed-Bold.ttf);font-weight:700;font-display:block}
@@ -107,8 +107,8 @@ input,select{font:16px -apple-system,sans-serif;color:var(--text);background:#0d
 .tabs a{flex:1;text-align:center;padding:10px 4px;border-radius:10px;font:800 17px Barlow;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 .tabs a.on{background:var(--btn2);color:#fff}
 .preview{width:100%;border-radius:14px;display:block;margin-top:12px;background:#111}
-.playbtns{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.pb{font:800 21px Barlow;text-transform:uppercase;padding:16px 4px;background:linear-gradient(180deg,#25304d,#1a2238)}
+.playbtns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pb{font:800 19px Barlow;text-transform:uppercase;padding:15px 2px;background:linear-gradient(180deg,#25304d,#1a2238)}
 .pb.flag{background:linear-gradient(180deg,#ffd84f,#f0b400);color:#111;border:0}
 .card .wide{margin-top:8px}
 .clockrow{display:flex;align-items:center;gap:12px}
@@ -116,6 +116,14 @@ input,select{font:16px -apple-system,sans-serif;color:var(--text);background:#0d
 .bigclock.run{color:#fff}
 .clockrow button{min-width:120px}
 .qrow button{padding:10px 4px;font-size:15px}
+.qbar{display:flex;align-items:center;gap:8px;margin-top:10px}
+.qbar .qnow{flex:1;text-align:center;font:800 24px Barlow;text-transform:uppercase}
+.qbar .qarrow{width:52px;font-size:24px;padding:8px}
+button:disabled{opacity:.35}
+.spotrow{align-items:center}.spotrow span{flex:2;text-align:center;font:800 22px Barlow;text-transform:uppercase}
+.pops{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.pops button{padding:11px 4px;font-size:14px}
+.teamstats td,.teamstats th{text-align:center}.teamstats td.pn{text-align:left;font-weight:500}
 .togo{align-items:center}
 .togo span{flex:2;text-align:center;font:800 22px Barlow;text-transform:uppercase}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -149,6 +157,7 @@ input,select{font:16px -apple-system,sans-serif;color:var(--text);background:#0d
 .recov video{position:absolute;width:2px;height:2px;opacity:0;pointer-events:none}
 .recov canvas{max-width:100%;max-height:100%;width:auto;height:auto;display:block}
 .rec-top{position:absolute;top:calc(8px + env(safe-area-inset-top));left:calc(8px + env(safe-area-inset-left));right:calc(8px + env(safe-area-inset-right));display:flex;align-items:center;gap:10px;z-index:2}
+.rec-top{pointer-events:none}.rec-top>*{pointer-events:auto}
 .rec-top .x{background:rgba(0,0,0,.45);color:#fff;border-radius:50%;width:44px;height:44px;padding:0}
 .rec-time{flex:1;font:800 22px Barlow;color:#ff4a4a;text-shadow:0 1px 3px #000}
 .flip{background:rgba(0,0,0,.45);border-color:rgba(255,255,255,.25)}
@@ -157,20 +166,28 @@ input,select{font:16px -apple-system,sans-serif;color:var(--text);background:#0d
 .recbtn.on i{width:26px;height:26px;border-radius:6px}
 .rec-ctl{position:absolute;inset:0;z-index:2;pointer-events:none}
 .rec-ctl>*{pointer-events:auto}
-.rc-team{position:absolute;top:calc(84px + env(safe-area-inset-top));display:grid;grid-template-columns:1fr 1fr;gap:5px;background:rgba(0,0,0,.4);padding:6px;border-radius:14px;border-top:3px solid var(--c1);width:118px}
+.rc-team{position:absolute;top:calc(84px + env(safe-area-inset-top));display:grid;grid-template-columns:1fr 1fr;gap:5px;background:rgba(0,0,0,.4);padding:6px;border-radius:14px;border-top:3px solid var(--c1);width:124px}
 .rc-team.away{left:calc(8px + env(safe-area-inset-left))}
 .rc-team.home{right:calc(8px + env(safe-area-inset-right))}
 .rc-team span{grid-column:span 2;text-align:center;font:800 16px Barlow;color:#fff}
 .rc-team .wide2{grid-column:span 2}
 .rc-team button,.rc-mid button{background:rgba(20,26,42,.72);border-color:rgba(255,255,255,.18);padding:9px 6px;font-size:13px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .rc-team button{font:800 18px Barlow}
-.rc-team button.wide2{font:600 13px -apple-system,sans-serif;padding:7px}
-.rc-mid{position:absolute;top:calc(10px + env(safe-area-inset-top));left:calc(150px + env(safe-area-inset-left));right:calc(170px + env(safe-area-inset-right));display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+.rc-team button.wide2,.rc-team button.sm{font:600 13px -apple-system,sans-serif;padding:7px 4px}
+.rc-mid{position:absolute;top:calc(8px + env(safe-area-inset-top));left:calc(150px + env(safe-area-inset-left));right:calc(170px + env(safe-area-inset-right));display:flex;flex-direction:column;gap:5px}
+.rc-tabs{display:flex;gap:4px}
+.rc-tabs button{flex:1;padding:6px 2px;font:700 11px -apple-system,sans-serif;text-transform:uppercase;letter-spacing:.04em}
+.rc-tabs button.on{background:rgba(255,207,63,.92);color:#111;box-shadow:none;border-color:transparent}
+.rc-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:5px}
+.rc-row button{padding:8px 3px;font-size:12px}
+.rc-mid button.yel{background:rgba(255,207,63,.92);color:#111;border-color:transparent;font-weight:800}
+.rc-q{display:grid;place-items:center;font:800 16px Barlow;color:#fff;background:rgba(0,0,0,.55);border-radius:10px;text-transform:uppercase;padding:0 4px;text-align:center;line-height:1}
+.rc-show{position:absolute;z-index:3;top:calc(14px + env(safe-area-inset-top));left:0;right:0;margin:0 auto;width:max-content;background:rgba(20,26,42,.72);border-color:rgba(255,255,255,.18);font-size:13px;padding:9px 14px}
 .rc-mid button.go{background:rgba(23,102,58,.85)}.rc-mid button.stop{background:rgba(141,27,27,.85)}
 .rec-top .rec-time{flex:none;width:96px}
 .rec-top .sp{flex:1}
 .rotate-hint{position:absolute;top:45%;left:0;right:0;text-align:center;color:#fff;font:800 20px Barlow;text-transform:uppercase;text-shadow:0 2px 6px #000;display:none;pointer-events:none}
-@media (orientation:portrait){.recov .rotate-hint{display:block;animation:fadehint 4s forwards}.rc-mid{top:calc(70px + env(safe-area-inset-top));left:8px;right:8px;grid-template-columns:repeat(3,1fr)}.rc-team{top:calc(170px + env(safe-area-inset-top))}}
+@media (orientation:portrait){.recov .rotate-hint{display:block;animation:fadehint 4s forwards}.rc-mid{top:calc(70px + env(safe-area-inset-top));left:8px;right:8px}.rc-team{top:auto;bottom:calc(16px + env(safe-area-inset-bottom))}}
 @keyframes fadehint{0%,70%{opacity:1}100%{opacity:0}}
 /* save dialog */
 .savedlg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}
@@ -197,7 +214,8 @@ td.pn{font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;whi
 </head>
 <body>
 <div id="app"></div>
-<script src="bug.js?v=2"></script>
-<script src="app.js?v=2"></script>
+<div class="ver" hidden>v3.0</div>
+<script src="bug.js?v=3"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

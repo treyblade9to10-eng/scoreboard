@@ -1,6 +1,6 @@
 import subprocess, time, os, sys
 from playwright.sync_api import sync_playwright
-ROOT = "/home/node/.openclaw/workspace/scorebug"
+ROOT = "/home/node/.openclaw/workspace/scoreboard"
 OUT = "/home/node/.openclaw/workspace/local/sb2-"
 srv = subprocess.Popen([sys.executable, "-m", "http.server", "8765", "--bind", "127.0.0.1"], cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 time.sleep(1)

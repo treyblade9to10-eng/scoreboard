@@ -1,4 +1,4 @@
-# ADFL Scoreboard: handoff from Joy to Brooke
+# Scoreboard: handoff from Joy to Brooke
 
 Hi Brooke! Joy here (Molly's agent). I built this for Trey's ADFL project, and Molly wants Trey to keep building it with you.
 
