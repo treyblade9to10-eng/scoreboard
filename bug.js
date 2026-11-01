@@ -344,6 +344,251 @@
     return { x: x0, w: total, h };
   }
 
+  // ---------- Style 7: NEON (dark glass, glowing outlines) ----------
+  function neon(ctx, W, H, S, now, L) {
+    const { u } = L, h = 72 * u, teamW = 290 * u, clockW = 168 * u, ddW = ddWidth(S, u), gap = 10 * u;
+    const total = teamW * 2 + clockW + ddW + gap * (ddW ? 3 : 2), x0 = (W - total) / 2, y = L.y;
+    const glowCol = T => shade(lum(T.c1) < .06 ? T.c2 : T.c1, .3);
+    const pane = (x, w, col) => {
+      ctx.save(); rr(ctx, x, y, w, h, 14 * u); ctx.fillStyle = "rgba(8,10,20,.86)"; ctx.fill();
+      ctx.shadowColor = col; ctx.shadowBlur = 18 * u; ctx.strokeStyle = col; ctx.lineWidth = 3 * u; ctx.stroke(); ctx.stroke(); ctx.restore();
+    };
+    const glowText = (str, x, yy, col, align, font) => { ctx.save(); ctx.font = font; ctx.shadowColor = col; ctx.shadowBlur = 14 * u; text(ctx, str, x, yy, "#fff", align); ctx.restore(); };
+    let x = x0;
+    for (const side of ["away", "home"]) {
+      const T = S[side], col = glowCol(T);
+      pane(x, teamW, col);
+      logo(ctx, T.logo, x + 44 * u, y + h / 2, 50 * u, T.abbr, "#fff");
+      fit(ctx, T.abbr, 800, 36 * u, "Barlow", 100 * u);
+      glowText(T.abbr, x + 82 * u, y + 30 * u, col, "left", ctx.font);
+      pips(ctx, x + 83 * u, y + 52 * u, T.to, 18 * u, 4 * u, 5 * u, col, "rgba(255,255,255,.15)");
+      if (T.ball) ball(ctx, x + teamW - 104 * u, y + 30 * u, 10 * u);
+      glowText(String(T.score), x + teamW - 22 * u, y + h / 2 + 2 * u, col, "right", `800 ${52 * u}px Barlow`);
+      pulse(ctx, T.pulseAt, now, x + teamW - 90 * u, y, 90 * u, h);
+      x += teamW + gap;
+    }
+    pane(x, clockW, "#e8ecff");
+    const c = clockStr(S);
+    if (c.c) {
+      ctx.font = `700 ${18 * u}px Barlow`; text(ctx, c.q + " QTR", x + clockW / 2, y + 20 * u, "#aab1d6", "center");
+      glowText(c.c, x + clockW / 2, y + 48 * u, S.running ? "#8fd8ff" : "#ffd23f", "center", `800 ${36 * u}px Barlow`);
+    } else { fit(ctx, c.q, 800, 32 * u, "Barlow", clockW - 24 * u); glowText(c.q, x + clockW / 2, y + h / 2 + 2 * u, "#8fd8ff", "center", ctx.font); }
+    x += clockW + gap;
+    if (ddW) { pane(x, ddW, "#ff3bd8"); ddText(ctx, S, x, y, ddW, h, u, "Barlow", "#fff", "#ffc2f1"); }
+    return { x: x0, w: total, h };
+  }
+
+  // ---------- Style 8: MINIMAL (small white pill) ----------
+  function minimal(ctx, W, H, S, now, L) {
+    const { u } = L, h = 54 * u, lg = 54 * u, ab = 76 * u, sc = 58 * u, side = lg + ab + sc, clockW = 150 * u;
+    const ddW = S.dd ? (S.spot ? 236 : 130) * u : 0, total = side * 2 + clockW + ddW, x0 = (W - total) / 2, y = L.y;
+    ctx.save(); shadowOn(ctx, u, .4); rr(ctx, x0, y, total, h, h / 2); ctx.fillStyle = "rgba(255,255,255,.96)"; ctx.fill(); ctx.restore();
+    ctx.save(); rr(ctx, x0, y, total, h, h / 2); ctx.clip();
+    let x = x0;
+    for (const sd of ["away", "home"]) {
+      const T = S[sd], home = sd === "home";
+      const lx = home ? x + ab + sc : x, ax = home ? x + sc : x + lg, sx = home ? x : x + lg + ab;
+      ctx.fillStyle = T.c1; ctx.fillRect(lx, y, lg, h);
+      logo(ctx, T.logo, lx + lg / 2, y + h / 2, 38 * u, T.abbr, ink(T.c1));
+      fit(ctx, T.abbr, 800, 30 * u, "Barlow", ab - 16 * u); text(ctx, T.abbr, ax + ab / 2, y + h / 2 - 3 * u, "#16181d", "center");
+      pips(ctx, ax + ab / 2 - 23 * u, y + h - 12 * u, T.to, 13 * u, 3 * u, 3 * u, T.c1, "#d5d8de");
+      ctx.font = `800 ${36 * u}px Barlow`; text(ctx, String(T.score), sx + sc / 2, y + h / 2 + 1 * u, "#16181d", "center");
+      if (T.ball) { ctx.fillStyle = T.c1; ctx.fillRect(ax + 6 * u, y + h - 4 * u, ab - 12 * u, 4 * u); }
+      pulse(ctx, T.pulseAt, now, sx, y, sc, h);
+      x += side;
+      if (!home) { ctx.fillStyle = "#e3e5ea"; ctx.fillRect(x - 1 * u, y + 10 * u, 2 * u, h - 20 * u); }
+    }
+    ctx.fillStyle = "#16181d"; ctx.fillRect(x, y, clockW + ddW, h);
+    const c = clockStr(S);
+    if (c.c) { ctx.font = `700 ${24 * u}px Barlow`; text(ctx, c.q, x + 18 * u, y + h / 2 + 1 * u, "#9aa0ab"); text(ctx, c.c, x + clockW - 14 * u, y + h / 2 + 1 * u, S.running ? "#fff" : "#ffd23f", "right"); }
+    else { fit(ctx, c.q, 800, 24 * u, "Barlow", clockW - 20 * u); text(ctx, c.q, x + clockW / 2, y + h / 2 + 1 * u, "#fff", "center"); }
+    if (ddW) { ctx.fillStyle = "#2b2f38"; ctx.fillRect(x + clockW, y, ddW, h); ddText(ctx, S, x + clockW - 6 * u, y, ddW, h, u, "Barlow", "#fff", "#aab0bd", 1); }
+    ctx.restore();
+    return { x: x0, w: total, h };
+  }
+
+  // ---------- Style 9: VARSITY (felt patches, stitched letters) ----------
+  function varsity(ctx, W, H, S, now, L) {
+    const { u } = L, h = 84 * u, teamW = 300 * u, clockW = 180 * u, ddW = ddWidth(S, u), gap = 6 * u;
+    const total = teamW * 2 + clockW + ddW + gap * (ddW ? 3 : 2), x0 = (W - total) / 2, y = L.y;
+    const stitch = (x, w, col) => { ctx.save(); ctx.setLineDash([7 * u, 5 * u]); ctx.strokeStyle = col; ctx.lineWidth = 2 * u; rr(ctx, x + 6 * u, y + 6 * u, w - 12 * u, h - 12 * u, 8 * u); ctx.stroke(); ctx.restore(); };
+    const chenille = (str, x, yy, size, fill, edge, align) => {
+      ctx.font = `800 ${size}px Barlow`; ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.lineJoin = "round";
+      ctx.lineWidth = size * .22; ctx.strokeStyle = edge; ctx.strokeText(str, x, yy);
+      ctx.lineWidth = size * .08; ctx.strokeStyle = "#111"; ctx.strokeText(str, x, yy);
+      ctx.fillStyle = fill; ctx.fillText(str, x, yy);
+    };
+    let x = x0;
+    for (const side of ["away", "home"]) {
+      const T = S[side];
+      ctx.save(); shadowOn(ctx, u); rr(ctx, x, y, teamW, h, 12 * u); ctx.fillStyle = vgrad(ctx, y, h, shade(T.c1, .08), shade(T.c1, -.22)); ctx.fill(); ctx.restore();
+      stitch(x, teamW, shade(T.c2, .2));
+      logo(ctx, T.logo, x + 50 * u, y + h / 2, 56 * u, T.abbr, ink(T.c1));
+      const lum1 = lum(T.c1) > .5;
+      chenille(T.abbr, x + 96 * u, y + h / 2 - 6 * u, Math.min(40 * u, fit(ctx, T.abbr, 800, 40 * u, "Barlow", 96 * u)), lum1 ? "#111" : "#fff", T.c2, "left");
+      pips(ctx, x + 97 * u, y + h - 20 * u, T.to, 18 * u, 5 * u, 5 * u, T.c2, "rgba(0,0,0,.3)");
+      if (T.ball) ball(ctx, x + 208 * u, y + h - 22 * u, 9 * u);
+      chenille(String(T.score), x + teamW - 46 * u, y + h / 2 + 2 * u, 54 * u, "#fff", T.c2, "center");
+      pulse(ctx, T.pulseAt, now, x + teamW - 92 * u, y, 92 * u, h);
+      x += teamW + gap;
+    }
+    ctx.save(); shadowOn(ctx, u); rr(ctx, x, y, clockW, h, 12 * u); ctx.fillStyle = "#17191c"; ctx.fill(); ctx.restore();
+    stitch(x, clockW, "#6d6f74");
+    const c = clockStr(S);
+    if (c.c) { ctx.font = `700 ${20 * u}px Barlow`; text(ctx, c.q + " QTR", x + clockW / 2, y + 24 * u, "#c7c9cc", "center"); chenille(c.c, x + clockW / 2, y + 54 * u, 34 * u, S.running ? "#fff" : "#ffd23f", "#3a3c40", "center"); }
+    else chenille(c.q, x + clockW / 2, y + h / 2, Math.min(34 * u, fit(ctx, c.q, 800, 34 * u, "Barlow", clockW - 36 * u)), "#fff", "#3a3c40", "center");
+    x += clockW + gap;
+    if (ddW) {
+      ctx.save(); shadowOn(ctx, u); rr(ctx, x, y, ddW, h, 12 * u); ctx.fillStyle = vgrad(ctx, y, h, "#f3d26a", "#d9a92c"); ctx.fill(); ctx.restore();
+      stitch(x, ddW, "#8a6a12"); ddText(ctx, S, x, y, ddW, h, u, "Barlow", "#1a1406", "#5c4708");
+    }
+    return { x: x0, w: total, h };
+  }
+
+  // ---------- Style 10: JUMBO (stadium scoreboard with LED digits) ----------
+  function led(ctx, str, x, y, size, col, align, u) {
+    ctx.save(); ctx.font = `700 ${size}px Teko`; ctx.textAlign = align; ctx.textBaseline = "middle";
+    const w = ctx.measureText(str).width, lx = align === "center" ? x - w / 2 : align === "right" ? x - w : x;
+    ctx.shadowColor = col; ctx.shadowBlur = size * .3; ctx.fillStyle = col; ctx.fillText(str, x, y + size * .08); ctx.shadowBlur = 0;
+    const st = Math.max(3, size / 10); ctx.fillStyle = "rgba(0,0,0,.38)";
+    for (let gx = lx - 2; gx < lx + w + 2; gx += st) ctx.fillRect(gx, y - size * .5, st * .2, size);
+    for (let gy = y - size * .5; gy < y + size * .5; gy += st) ctx.fillRect(lx - 2, gy, w + 4, st * .2);
+    ctx.restore();
+  }
+  function jumbo(ctx, W, H, S, now, L) {
+    const { u } = L, row1 = 74 * u, row2 = S.ddRaw ? 38 * u : 0, h = row1 + row2 + 12 * u, teamW = 250 * u, clockW = 230 * u;
+    const total = teamW * 2 + clockW + 24 * u, x0 = (W - total) / 2, y = L.y;
+    ctx.save(); shadowOn(ctx, u, .55); rr(ctx, x0, y, total, h, 10 * u);
+    const fr = ctx.createLinearGradient(0, y, 0, y + h); fr.addColorStop(0, "#4a4e57"); fr.addColorStop(1, "#1d1f24"); ctx.fillStyle = fr; ctx.fill(); ctx.restore();
+    rr(ctx, x0 + 6 * u, y + 6 * u, total - 12 * u, h - 12 * u, 6 * u); ctx.fillStyle = "#060607"; ctx.fill();
+    let x = x0 + 12 * u; const ry = y + 6 * u;
+    for (const side of ["away", "home"]) {
+      const T = S[side];
+      ctx.fillStyle = T.c1; ctx.fillRect(x + 10 * u, ry + 8 * u, teamW - 20 * u, 22 * u);
+      fit(ctx, (T.name || T.abbr).toUpperCase(), 700, 18 * u, "Barlow", teamW - 60 * u); text(ctx, (T.name || T.abbr).toUpperCase(), x + teamW / 2, ry + 20 * u, ink(T.c1), "center");
+      if (T.ball) { ctx.save(); ctx.fillStyle = "#ff3b2f"; ctx.shadowColor = "#ff3b2f"; ctx.shadowBlur = 8 * u; ctx.beginPath(); ctx.arc(side === "away" ? x + teamW - 18 * u : x + 18 * u, ry + 52 * u, 6 * u, 0, 7); ctx.fill(); ctx.restore(); }
+      for (let i = 0; i < 3; i++) { ctx.fillStyle = i < T.to ? "#ffcf3f" : "#2a2a2a"; ctx.beginPath(); ctx.arc((side === "away" ? x + 18 * u : x + teamW - 18 * u), ry + 40 * u + i * 9 * u, 3 * u, 0, 7); ctx.fill(); }
+      led(ctx, String(T.score), x + teamW / 2, ry + 52 * u, 44 * u, "#ffb02e", "center", u);
+      pulse(ctx, T.pulseAt, now, x, ry, teamW, row1);
+      x += teamW;
+      if (side === "away") x += clockW;
+    }
+    const cx = x0 + 12 * u + teamW, c = clockStr(S);
+    if (c.c) { ctx.font = `600 ${18 * u}px Barlow`; text(ctx, "QTR " + c.q, cx + clockW / 2, ry + 18 * u, "#c9ccd3", "center"); led(ctx, c.c, cx + clockW / 2, ry + 50 * u, 48 * u, S.running ? "#ff4a2f" : "#ffb02e", "center", u); }
+    else led(ctx, c.q, cx + clockW / 2, ry + row1 / 2, 40 * u, "#ffb02e", "center", u);
+    if (row2) {
+      const D = S.ddRaw, cells = [["DOWN", String(D.down)], ["TO GO", D.toGo === "Goal" ? "G" : String(D.toGo)], ["BALL ON", D.spotNum != null ? String(D.spotNum) : "-"], ["QTR", { HALF: "H", FINAL: "F" }[S.qtr] || String(S.qtr)]];
+      const cw = (total - 24 * u) / 4, by = ry + row1 + 2 * u;
+      ctx.fillStyle = "rgba(255,255,255,.08)"; ctx.fillRect(x0 + 12 * u, by - 2 * u, total - 24 * u, 1 * u);
+      cells.forEach(([l, v], i) => {
+        const bx = x0 + 12 * u + cw * i;
+        ctx.font = `600 ${15 * u}px Barlow`; text(ctx, l, bx + cw * .48, by + row2 / 2, "#c9ccd3", "right");
+        led(ctx, v, bx + cw * .56, by + row2 / 2, 30 * u, "#ffb02e", "left", u);
+      });
+    }
+    return { x: x0, y, w: total, h };
+  }
+
+  // ---------- extra layers: info tab, player card, intro, stats panel, replay tag ----------
+  function infoTab(ctx, W, H, S, box, u) {
+    if (!S.drive && !S.wp) return 0;
+    const th = 32 * u, below = box.corner || S.top, ty = below ? box.y + box.h + 6 * u : box.y - th - 6 * u;
+    ctx.font = `700 ${19 * u}px Barlow`;
+    const dW = S.drive ? ctx.measureText(S.drive).width + 96 * u : 0, wW = S.wp ? 300 * u : 0;
+    const tot = dW + wW + (dW && wW ? 4 * u : 0), x0 = box.corner ? box.x : box.x + (box.w - tot) / 2;
+    ctx.save(); shadowOn(ctx, u, .4); rr(ctx, x0, ty, tot, th, 6 * u); ctx.fillStyle = "rgba(10,12,18,.9)"; ctx.fill(); ctx.restore();
+    let x = x0;
+    if (dW) {
+      ctx.save(); rr(ctx, x, ty, dW, th, 6 * u); ctx.clip(); ctx.fillStyle = "#ffcf3f"; ctx.fillRect(x, ty, 70 * u, th); ctx.restore();
+      ctx.font = `800 ${17 * u}px Barlow`; text(ctx, "DRIVE", x + 35 * u, ty + th / 2 + 1 * u, "#111", "center");
+      ctx.font = `700 ${19 * u}px Barlow`; text(ctx, S.drive, x + 82 * u, ty + th / 2 + 1 * u, "#fff");
+      x += dW + 4 * u;
+    }
+    if (wW) {
+      const A = S.away, Hm = S.home, a = S.wp.away, bx = x + 92 * u, bw = wW - 184 * u, by = ty + th / 2 - 6 * u;
+      ctx.font = `700 ${18 * u}px Barlow`;
+      text(ctx, `${A.abbr} ${a}%`, x + 12 * u, ty + th / 2 + 1 * u, "#fff");
+      text(ctx, `${100 - a}% ${Hm.abbr}`, x + wW - 12 * u, ty + th / 2 + 1 * u, "#fff", "right");
+      ctx.save(); rr(ctx, bx, by, bw, 12 * u, 6 * u); ctx.clip();
+      ctx.fillStyle = lum(A.c1) < .03 ? A.c2 : A.c1; ctx.fillRect(bx, by, bw * a / 100, 12 * u);
+      ctx.fillStyle = lum(Hm.c1) < .03 ? Hm.c2 : Hm.c1; ctx.fillRect(bx + bw * a / 100, by, bw, 12 * u);
+      ctx.fillStyle = "#fff"; ctx.fillRect(bx + bw * a / 100 - 1 * u, by, 2 * u, 12 * u); ctx.restore();
+      ctx.font = `600 ${11 * u}px Barlow`; text(ctx, "WIN CHANCE", bx + bw / 2, ty + 5 * u, "#9aa0ab", "center");
+    }
+    return th;
+  }
+  function playerCard(ctx, S, B, box, u, age, e, below) {
+    const T = B.team ? S[B.team] : S.away, bh = (B.sub2 ? 86 : 72) * u, bw = Math.max(560 * u, Math.min(box.w, 700 * u));
+    const bx = box.corner ? box.x : box.x + (box.w - bw) / 2, by = below ? box.y + box.h + 12 * u : box.y - bh - 12 * u;
+    ctx.save(); ctx.beginPath(); ctx.rect(bx - 20 * u, by - 20 * u, (bw + 40 * u) * e, bh + 40 * u); ctx.clip();
+    ctx.save(); shadowOn(ctx, u); rr(ctx, bx, by, bw, bh, 8 * u); ctx.fillStyle = vgrad(ctx, by, bh, shade(T.c1, .12), shade(T.c1, -.25)); ctx.fill(); ctx.restore();
+    ctx.save(); rr(ctx, bx, by, bw, bh, 8 * u); ctx.clip();
+    ctx.fillStyle = T.c2; ctx.fillRect(bx, by, 104 * u, bh);
+    ctx.fillStyle = "rgba(255,255,255,.08)"; ctx.fillRect(bx, by, bw, bh * .4);
+    ctx.restore();
+    const nc = ink(T.c2), tc = ink(T.c1);
+    fit(ctx, B.num || "", "italic 800", 46 * u, "Barlow", 90 * u); text(ctx, B.num || "", bx + 52 * u, by + bh / 2 + 2 * u, nc, "center");
+    const big = (B.text || "").toUpperCase();
+    fit(ctx, big, 800, 34 * u, "Barlow", bw - 200 * u); text(ctx, big, bx + 122 * u, by + 26 * u, tc);
+    ctx.save(); ctx.globalAlpha = .92; fit(ctx, (B.sub || "").toUpperCase(), 700, 22 * u, "Barlow", bw - 200 * u); text(ctx, (B.sub || "").toUpperCase(), bx + 122 * u, by + 54 * u, tc); ctx.restore();
+    if (B.sub2) { ctx.save(); ctx.globalAlpha = .7; fit(ctx, B.sub2.toUpperCase(), 600, 18 * u, "Barlow", bw - 200 * u); text(ctx, B.sub2.toUpperCase(), bx + 122 * u, by + 74 * u, tc); ctx.restore(); }
+    logo(ctx, T.logo, bx + bw - 44 * u, by + bh / 2, 54 * u, T.abbr, tc);
+    ctx.restore();
+  }
+  function intro(ctx, W, H, S, B, age, dur) {
+    const a = clamp(Math.min(age / .4, (dur - age) / .4), 0, 1), e = 1 - (1 - a) ** 3, m = Math.min(W, H * 1.6);
+    ctx.save(); ctx.globalAlpha = a; ctx.fillStyle = "rgba(4,6,12,.82)"; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+    const off = (1 - e) * W * .5;
+    for (const side of ["away", "home"]) {
+      const T = S[side], L = side === "away", cx = L ? W * .27 - off : W * .73 + off;
+      ctx.save(); ctx.beginPath();
+      if (L) { ctx.moveTo(-off, H * .18); ctx.lineTo(W * .52 - off, H * .18); ctx.lineTo(W * .46 - off, H * .82); ctx.lineTo(-off, H * .82); }
+      else { ctx.moveTo(W * .54 + off, H * .18); ctx.lineTo(W + off, H * .18); ctx.lineTo(W + off, H * .82); ctx.lineTo(W * .48 + off, H * .82); }
+      ctx.closePath(); const gr = ctx.createLinearGradient(0, H * .18, 0, H * .82); gr.addColorStop(0, shade(T.c1, .15)); gr.addColorStop(1, shade(T.c1, -.35));
+      ctx.fillStyle = gr; ctx.fill(); ctx.fillStyle = T.c2; ctx.fillRect(L ? -off : W * .48 + off, H * .82 - m * .012, W * .52, m * .012); ctx.restore();
+      logo(ctx, T.logo, cx, H * .44, m * .26, T.abbr, ink(T.c1));
+      fit(ctx, (T.name || T.abbr).toUpperCase(), 800, m * .07, "Barlow", W * .4); text(ctx, (T.name || T.abbr).toUpperCase(), cx, H * .66, ink(T.c1), "center");
+      if (T.rec) { ctx.font = `600 ${m * .035}px Barlow`; text(ctx, T.rec, cx, H * .74, ink(T.c1), "center"); }
+    }
+    ctx.save(); ctx.globalAlpha = a; ctx.beginPath(); ctx.arc(W / 2, H * .5, m * .06, 0, 7); ctx.fillStyle = "#111"; ctx.fill(); ctx.lineWidth = m * .006; ctx.strokeStyle = "#ffcf3f"; ctx.stroke();
+    ctx.font = `italic 800 ${m * .06}px Barlow`; text(ctx, "VS", W / 2, H * .505, "#ffcf3f", "center");
+    fit(ctx, (B.text || "").toUpperCase(), 800, m * .06, "Barlow", W * .8); text(ctx, (B.text || "").toUpperCase(), W / 2, H * .1, "#fff", "center");
+    if (B.sub) { fit(ctx, B.sub.toUpperCase(), 600, m * .035, "Barlow", W * .8); text(ctx, B.sub.toUpperCase(), W / 2, H * .9, "#c9ccd3", "center"); }
+    ctx.restore(); ctx.restore();
+  }
+  function statsPanel(ctx, W, H, S, B, age, dur, u) {
+    const a = clamp(Math.min(age / .3, (dur - age) / .3), 0, 1), rows = B.rows || [];
+    const pw = 640 * u, rh = 40 * u, ph = 96 * u + rows.length * rh, px = (W - pw) / 2, py = Math.max(10 * u, (H - ph) / 2 - 40 * u);
+    ctx.save(); ctx.globalAlpha = a; ctx.translate(W / 2, py + ph / 2); const sc = .92 + .08 * a; ctx.scale(sc, sc); ctx.translate(-W / 2, -(py + ph / 2));
+    ctx.save(); shadowOn(ctx, u, .6); rr(ctx, px, py, pw, ph, 12 * u); ctx.fillStyle = "rgba(10,12,20,.94)"; ctx.fill(); ctx.restore();
+    ctx.save(); rr(ctx, px, py, pw, ph, 12 * u); ctx.clip();
+    ctx.fillStyle = S.away.c1; ctx.fillRect(px, py, pw / 2, 56 * u); ctx.fillStyle = S.home.c1; ctx.fillRect(px + pw / 2, py, pw / 2, 56 * u); ctx.restore();
+    logo(ctx, S.away.logo, px + 40 * u, py + 28 * u, 42 * u, S.away.abbr, ink(S.away.c1));
+    logo(ctx, S.home.logo, px + pw - 40 * u, py + 28 * u, 42 * u, S.home.abbr, ink(S.home.c1));
+    ctx.font = `800 ${28 * u}px Barlow`; text(ctx, S.away.abbr, px + pw * .3, py + 30 * u, ink(S.away.c1), "center"); text(ctx, S.home.abbr, px + pw * .7, py + 30 * u, ink(S.home.c1), "center");
+    ctx.font = `700 ${16 * u}px Barlow`; text(ctx, (B.text || "TEAM STATS").toUpperCase(), W / 2, py + 76 * u, "#ffcf3f", "center");
+    rows.forEach(([l, av, hv], i) => {
+      const ry = py + 96 * u + i * rh + rh / 2;
+      if (i % 2 === 0) { ctx.fillStyle = "rgba(255,255,255,.04)"; ctx.fillRect(px, ry - rh / 2, pw, rh); }
+      ctx.font = `800 ${26 * u}px Barlow`; text(ctx, String(av), px + pw * .14, ry, "#fff", "center"); text(ctx, String(hv), px + pw * .86, ry, "#fff", "center");
+      ctx.font = `600 ${20 * u}px Barlow`; text(ctx, l.toUpperCase(), W / 2, ry, "#c9ccd3", "center");
+    });
+    ctx.restore();
+  }
+  function replayTag(ctx, W, H, S, now, u) {
+    const x = S.style === "corner" ? W - 220 * u - W * .03 : W * .03, y = H * .05, w = 200 * u, h = 50 * u;
+    ctx.save(); shadowOn(ctx, u, .5); rr(ctx, x, y, w, h, 8 * u); ctx.fillStyle = "#c8102e"; ctx.fill(); ctx.restore();
+    const blink = Math.floor(now / 500) % 2 === 0;
+    ctx.fillStyle = blink ? "#fff" : "rgba(255,255,255,.4)"; ctx.beginPath(); ctx.moveTo(x + 22 * u, y + 14 * u); ctx.lineTo(x + 42 * u, y + h / 2); ctx.lineTo(x + 22 * u, y + h - 14 * u); ctx.closePath(); ctx.fill();
+    ctx.font = `italic 800 ${30 * u}px Barlow`; text(ctx, "REPLAY", x + 54 * u, y + h / 2 + 2 * u, "#fff");
+    ctx.font = `700 ${14 * u}px Barlow`; text(ctx, S.replaySpeed || "", x + w - 12 * u, y + h / 2 + 2 * u, "rgba(255,255,255,.8)", "right");
+  }
+  function wipe(ctx, W, H, p, col, col2) { // p 0..1 sweeps a slanted team-color band across the screen
+    const x = -W * .4 + p * W * 1.8, k = W * .2;
+    ctx.save(); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + W * .35, 0); ctx.lineTo(x + W * .35 - k, H); ctx.lineTo(x - k, H); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = col2; ctx.fillRect(0, 0, 0, 0); ctx.beginPath(); ctx.moveTo(x + W * .35, 0); ctx.lineTo(x + W * .38, 0); ctx.lineTo(x + W * .38 - k, H); ctx.lineTo(x + W * .35 - k, H); ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+
   // ---------- Banners: TOUCHDOWN / FIELD GOAL / FLAG / TIMEOUT ----------
   function banner(ctx, W, H, S, now, box, u) {
     const B = S.banner; if (!B) return;
@@ -351,6 +596,9 @@
     if (age < 0 || age > dur) return;
     const inP = clamp(age / .35, 0, 1), outP = clamp((dur - age) / .35, 0, 1);
     const p = Math.min(inP, outP), e = 1 - (1 - p) ** 3;
+    if (B.kind === "player") return playerCard(ctx, S, B, box, u, age, e, box.corner || S.top);
+    if (B.kind === "intro") return intro(ctx, W, H, S, B, age, dur);
+    if (B.kind === "stats") return statsPanel(ctx, W, H, S, B, age, dur, u);
     const bh = (B.kind === "td" ? 80 : 70) * u, bw = Math.max(box.w, 640 * u);
     const bx = box.corner ? box.x : W / 2 - bw / 2;
     const below = box.corner || S.top;
@@ -400,15 +648,19 @@
     const isCorner = S.style === "corner";
     let u = W * base * (S.size || 1) / 1000;
     if (!isCorner) u = Math.min(u, W * .97 / (S.dd && S.spot ? 1180 : 1060));
-    const bugH = (S.style === "retro" ? 84 : 80) * u + (S.style === "clean" && S.dd ? 40 * u : 0);
+    if (S.style === "jumbo") u = Math.min(u * 1.15, W * .97 / 800);
+    const bugH = S.style === "jumbo" ? (S.ddRaw ? 124 : 86) * u : ({ retro: 84, varsity: 84, minimal: 54, neon: 72, tilt: 76 }[S.style] || 80) * u + (S.style === "clean" && S.dd ? 40 * u : 0);
     const margin = landscape ? H * .065 : H * .04;
     const y = S.top ? margin : H - margin - bugH;
     const L = { u, y };
-    const fn = { night, clean, tilt, corner, retro }[S.style] || prime;
+    const fn = { night, clean, tilt, corner, retro, neon, minimal, varsity, jumbo }[S.style] || prime;
     const box = fn(ctx, W, H, S, now, L);
     if (box.y == null) box.y = y;
+    const th = infoTab(ctx, W, H, S, box, u);
+    if (th) { if (box.corner || S.top) box.h += th + 6 * u; else box.y -= th + 6 * u; }
     banner(ctx, W, H, S, now, box, u);
+    if (S.replay) replayTag(ctx, W, H, S, now, Math.max(u, W * .64 / 1000));
   }
 
-  window.ScoreBug = { drawBug, shade, ink, lum, hexToRgb };
+  window.ScoreBug = { drawBug, shade, ink, lum, hexToRgb, wipe, rr, fit, logo };
 })();

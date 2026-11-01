@@ -17,6 +17,10 @@ const STYLES = [
   { id: "tilt", name: "Tilt", note: "Slanted team slabs, sporty" },
   { id: "corner", name: "Corner", note: "Stacked in the top corner, college TV look" },
   { id: "retro", name: "Retro", note: "Chrome frame, glowing scoreboard digits" },
+  { id: "neon", name: "Neon", note: "Dark glass with glowing team colors" },
+  { id: "minimal", name: "Minimal", note: "Small white pill, stays out of the way" },
+  { id: "varsity", name: "Varsity", note: "Letterman patches with stitched letters" },
+  { id: "jumbo", name: "Jumbotron", note: "Stadium scoreboard with LED numbers, down and ball on" },
 ];
 const Q_SHORT = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", HALF: "Half", OT: "OT", FINAL: "Final" };
 const Q_LONG = { 1: "1st Quarter", 2: "2nd Quarter", 3: "3rd Quarter", 4: "4th Quarter", HALF: "Halftime", OT: "Overtime", FINAL: "Final" };
@@ -33,9 +37,9 @@ function prevQ(g) { const i = Q_ORDER.indexOf(g.s.qtr); return i > 0 ? Q_ORDER[i
 let DB = load();
 function load() {
   for (const k of [DB_KEY, ...OLD_KEYS]) {
-    try { const d = JSON.parse(localStorage.getItem(k)); if (d && d.teams) return d; } catch (e) {}
+    try { const d = JSON.parse(localStorage.getItem(k)); if (d && d.teams) { d.seasons = d.seasons || []; return d; } } catch (e) {}
   }
-  return { teams: [], games: [] };
+  return { teams: [], games: [], seasons: [] };
 }
 function persist() {
   try { localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
@@ -81,7 +85,7 @@ function spotText(g) {
 function sideTeam(g, side) { return team(side === "away" ? g.awayId : g.homeId) || { name: side.toUpperCase(), abbr: side === "away" ? "AWY" : "HOM", c1: "#333", c2: "#999", roster: [] }; }
 
 function bugState(g, now, styleOverride) {
-  const s = g.s, S = { style: styleOverride || g.style, qtr: s.qtr, running: s.running, banner: RT.banner && RT.banner.gid === g.id ? RT.banner : null };
+  const s = g.s, S = { style: styleOverride || g.style, qtr: s.qtr, running: s.running, banner: curBanner(g, now) };
   for (const side of ["away", "home"]) {
     const T = sideTeam(g, side);
     S[side] = { abbr: T.abbr, name: T.name, logo: img(T.logo), c1: T.c1, c2: T.c2, score: s[side].score, to: s[side].to,
@@ -91,6 +95,10 @@ function bugState(g, now, styleOverride) {
   S.dd = s.ddShow && s.down && !["HALF", "FINAL"].includes(s.qtr) ? `${ord(s.down)} & ${s.toGo === "Goal" ? "GOAL" : s.toGo}` : null;
   S.spot = S.dd && g.spotShow !== false && s.pos ? spotText(g) : null;
   S.size = g.bugSize || 1; S.top = g.bugPos === "top";
+  S.ddRaw = S.dd ? { down: s.down, toGo: s.toGo, spotNum: g.spotShow !== false && s.pos ? (s.pos <= 50 ? s.pos : 100 - s.pos) : null } : null;
+  S.drive = g.driveShow !== false && S.dd && g.plays ? driveText(g) : null;
+  S.wp = g.wpShow !== false && s.qtr !== "FINAL" && g.plays && (g.plays.length || s.away.score || s.home.score) ? winProb(g) : null;
+  if (S.banner && S.banner.kind === "intro" && S.banner.recs) { S.away.rec = S.banner.recs.away; S.home.rec = S.banner.recs.home; }
   return S;
 }
 function onClockZero(g) {
@@ -98,7 +106,26 @@ function onClockZero(g) {
   if (Q_LONG[s.qtr] && !["HALF", "FINAL"].includes(s.qtr)) banner(g, "to", "End of " + Q_LONG[s.qtr], "", null, 4);
   persist(); refreshLive(g);
 }
-function banner(g, kind, text, sub, side, dur) { RT.banner = { gid: g.id, kind, text, sub, team: side, start: performance.now(), dur: dur || 4 }; }
+// pop-ups wait in line, so a TOUCHDOWN banner can be followed by the player who scored
+RT.bq = [];
+function banner(g, kind, text, sub, side, dur, extra) {
+  // a new pop-up replaces any player card that is showing or waiting, so things never pile up
+  RT.bq = RT.bq.filter(b => b.gid === g.id && b.kind !== "player");
+  if (extra && extra.now) RT.bq = [];
+  RT.bq.push(Object.assign({ gid: g.id, kind, text, sub, team: side, dur: dur || 4, start: null }, extra || {}));
+  if (RT.bq.length > 5) RT.bq.splice(1, RT.bq.length - 5);
+}
+function curBanner(g, now) {
+  const q = RT.bq;
+  while (q.length) {
+    const b = q[0];
+    if (b.gid !== g.id) return null;
+    if (b.start == null) { if (!now) return null; b.start = now; if (g.sfx !== false) SFX.forBanner(b.kind, b.text); }
+    if (now - b.start > b.dur * 1000) { q.shift(); continue; }
+    return b;
+  }
+  return null;
+}
 
 // field-ish backdrop for previews
 function drawBackdrop(ctx, W, H) {
@@ -174,7 +201,7 @@ function applyPlay(g, p) {
   snapshot(g);
   const s = g.s, off = p.team, def = other(off), O = sideTeam(g, off), D = sideTeam(g, def), y = +p.yards || 0, ret = +p.ret || 0;
   p.id = uid(); p.qtr = s.qtr; p.clock = fmtClock(curClock(s)); p.pts = 0; p.ptsSide = null;
-  p.pre = { down: s.down, toGo: s.toGo, pos: s.pos, ball: s.ball };
+  p.pre = { down: s.down, toGo: s.toGo, pos: s.pos, ball: s.ball }; const preBall = s.ball;
   const score = (side, pts) => { addPts(g, side, pts); p.pts = pts; p.ptsSide = side; };
   const afterScore = side => { turnover(s, other(side)); kickoffSpot(s); s.ddShow = true; };
   const adv = gain => { const r = advance(s, gain); s.ddShow = true; if (r === "first") p.first = true; return r === "downs" ? " (turnover on downs)" : ""; };
@@ -278,6 +305,7 @@ function applyPlay(g, p) {
   }
   p.desc = desc;
   g.plays.push(p);
+  afterPlay(g, p, preBall);
   g.updated = Date.now();
   persist();
 }
@@ -286,7 +314,7 @@ function undoPlay(g) {
   const u = JSON.parse(g.undo.pop());
   const keepClock = { clock: curClock(g.s), running: g.s.running, startedAt: g.s.startedAt, startClock: g.s.startClock, qtr: g.s.qtr };
   g.s = Object.assign(u.s, keepClock); g.plays.length = u.n;
-  RT.banner = null; persist(); toast("Undone");
+  RT.bq = []; persist(); toast("Undone");
 }
 
 function computeStats(g) {
@@ -348,6 +376,8 @@ function route() {
   const [v, id, tab] = parts;
   if (v === "team") return viewTeam(id);
   if (v === "new") return viewNewGame();
+  if (v === "season" && season(id)) return viewSeason(season(id));
+  if (v === "seasonedit") return viewSeasonEdit(id);
   if (v === "game" && game(id)) return viewGame(game(id), tab || "live");
   return viewHome();
 }
@@ -368,10 +398,11 @@ function viewHome() {
       const q = g.s.qtr === "FINAL" ? "Final" : g.s.qtr === "HALF" ? "Half" : `Q${g.s.qtr}`;
       return `<a class="gamecard" href="#/game/${g.id}">
         <div class="gc-team">${teamChip(A)}<span>${esc(A.abbr)}</span><b>${g.s.away.score}</b></div>
-        <div class="gc-mid"><span>${esc(g.title || "")}</span><small>${q} · ${new Date(g.created).toLocaleDateString()}</small></div>
+        <div class="gc-mid"><span>${esc(g.title || season(g.seasonId)?.name || "")}</span><small>${q} · ${new Date(g.created).toLocaleDateString()}</small></div>
         <div class="gc-team r"><b>${g.s.home.score}</b><span>${esc(H.abbr)}</span>${teamChip(H)}</div></a>`;
     }).join("") : `<p class="empty">No games yet. Make your teams first, then start a game.</p>`}
   </section>
+  ${seasonsHomeHTML()}
   <section>
     <div class="sechead"><h2>Teams</h2><button data-act="newTeam">+ New team</button></div>
     <div class="teamgrid">
@@ -444,7 +475,7 @@ function viewNewGame() {
   if (DB.teams.length < 2) { $app.innerHTML = `<header class="top"><button class="back" data-act="backHome">‹ Back</button><h1>New game</h1></header>
     <section><p>You need at least two teams first.</p><button class="primary" data-act="newTeam">+ Make a team</button></section>`; return; }
   const opts = sel => DB.teams.map(T => `<option value="${T.id}" ${T.id === sel ? "selected" : ""}>${esc(T.name)} (${esc(T.abbr)})</option>`).join("");
-  const NG = window.NG = window.NG || { awayId: DB.teams[0].id, homeId: DB.teams[1].id, style: "prime", qLen: 12, title: "" };
+  const NG = window.NG = window.NG || { awayId: DB.teams[0].id, homeId: DB.teams[1].id, style: "prime", qLen: 12, title: "", seasonId: "" };
   $app.innerHTML = `
   <header class="top"><button class="back" data-act="backHome">‹ Back</button><h1>New game</h1></header>
   <section>
@@ -452,6 +483,7 @@ function viewNewGame() {
     <label class="lbl">Home team</label><select data-input="ngHome">${opts(NG.homeId)}</select>
     <label class="lbl">Game name (optional)</label><input data-input="ngTitle" value="${esc(NG.title)}" placeholder="Week 3">
     <label class="lbl">Minutes per quarter</label><input data-input="ngQ" type="number" inputmode="numeric" value="${NG.qLen}" min="1" max="20">
+    ${seasonSelectHTML(NG.seasonId || "", "ngSeason")}
   </section>
   <section><h2>Score bug look</h2><div class="styles">${STYLES.map(st => `
     <button class="stylecard ${NG.style === st.id ? "on" : ""}" data-act="ngStyle" data-v="${st.id}">
@@ -501,7 +533,9 @@ function liveTab(g, el) {
   refreshLive(g);
 }
 const PLAY_BTNS = [["pass", "Pass"], ["run", "Run"], ["kick", "FG / XP"], ["two", "2-pt"], ["punt", "Punt"], ["kickoff", "Kickoff"], ["defense", "Defense"], ["penalty", "Flag"]];
-const POPS = [["td", "Touchdown"], ["first", "First down"], ["turnover", "Turnover"], ["flag", "Flag"], ["sack", "Sack"], ["stop", "4th down stop"], ["bigplay", "Big play"], ["twomin", "2-min warning"], ["injury", "Injury timeout"], ["custom", "Custom..."]];
+const POPS = [["td", "Touchdown"], ["first", "First down"], ["turnover", "Turnover"], ["flag", "Flag"], ["sack", "Sack"], ["stop", "4th down stop"], ["bigplay", "Big play"], ["twomin", "2-min warning"], ["injury", "Injury timeout"],
+  ["intro", "Matchup intro"], ["stats", "Team stats"], ["potg", "Player of game"], ["custom", "Custom..."]];
+const SOUNDS = [["horn", "Horn"], ["whistle", "Whistle"], ["crowd", "Crowd"], ["buzzer", "Buzzer"], ["chime", "Chime"]];
 function qBar(g) {
   const s = g.s, nq = nextQ(g), pq = prevQ(g);
   return `<div class="qbar"><button class="qarrow" data-act="qPrev" ${pq ? "" : "disabled"}>‹</button><span class="qnow">${Q_LONG[s.qtr] || s.qtr}</span>
@@ -549,6 +583,7 @@ function controlsHTML(g) {
   <section class="card">
     <h2>Pop-ups</h2>
     <div class="pops">${POPS.map(([v, l]) => `<button data-act="pop" data-v="${v}">${l}</button>`).join("")}</div>
+    <div class="lbl">Sounds</div><div class="pops">${SOUNDS.map(([v, l]) => `<button data-act="sfxPlay" data-v="${v}">${l}</button>`).join("")}</div>
   </section>`;
 }
 function refreshLive(g) {
@@ -666,15 +701,19 @@ function recordTab(g, el) {
     <ol class="steps"><li>Turn the phone sideways.</li><li>Tap <b>Open camera</b>, then the red button to record.</li>
       <li>Score buttons are on the left and right. The middle has tabs: <b>Clock</b> (start/stop, next quarter), <b>Downs</b> (down, distance, ball spot), <b>Plays</b> (log a pass, run, punt...), <b>Pop-ups</b> and <b>Look</b> (change the bug).</li>
       <li>Tap <b>Hide</b> to see the whole picture. The video keeps recording.</li>
+      <li><b>Replay</b> shows the last few seconds again in slow motion, right in your video. <b>Highlight</b> saves the last 12 to 24 seconds as its own clip (works even when you're not recording).</li>
       <li>When you stop, tap <b>Save video</b> and pick <b>Save Video</b> to put it in Photos.</li></ol>
     <p class="muted">First time? Record a 10 second test clip and check it saved right before the real game.</p>
     <button class="primary big wide" data-act="openCam">Open camera</button>
-  </section>`;
+  </section>
+  <section class="card"><h2>Highlights <small>clips you saved with the Highlight button</small></h2><div id="clipList"><p class="muted">Loading...</p></div></section>`;
+  renderClips(g);
 }
 const REC_PAGES = [["game", "Clock"], ["down", "Downs"], ["plays", "Plays"], ["pops", "Pop-ups"], ["look", "Look"]];
 function recControlsHTML(g) {
   const s = g.s, A = sideTeam(g, "away"), H = sideTeam(g, "home");
-  if (REC.hide) return `<button class="rc-show" data-act="recHide">Show controls</button>`;
+  const quick = `<button data-act="replay" id="rpBtn" class="${REC.replay ? "on" : ""}">${REC.replay ? "End replay" : "Replay"}</button><button data-act="highlight" class="hlbtn" id="hlBtn">${HL.count ? `Highlight (${HL.count})` : "Highlight"}</button>`;
+  if (REC.hide) return `<div class="rc-show">${quick}<button data-act="recHide">Show controls</button></div>`;
   const side = (sd, T) => `<div class="rc-team ${sd}" style="--c1:${T.c1}"><span>${esc(T.abbr)} <b>${s[sd].score}</b></span>
     <button data-act="pts" data-side="${sd}" data-v="6">+6</button><button data-act="pts" data-side="${sd}" data-v="3">+3</button>
     <button data-act="pts" data-side="${sd}" data-v="2">+2</button><button data-act="pts" data-side="${sd}" data-v="1">+1</button>
@@ -696,17 +735,18 @@ function recControlsHTML(g) {
     <button data-act="spot" data-v="-5">Spot −5</button><button data-act="spot" data-v="-1">−1</button><span class="rc-q">${esc(spotText(g))}</span><button data-act="spot" data-v="1">+1</button><button data-act="spot" data-v="5">+5</button>
     <button data-act="ddShow">${s.ddShow ? "Hide downs" : "Show downs"}</button>`;
   else if (P === "plays") row = PLAY_BTNS.map(([v, l]) => `<button class="${v === "penalty" ? "yel" : ""}" data-act="play" data-v="${v}">${l}</button>`).join("") + `<button data-act="undo">Undo</button>`;
-  else if (P === "pops") row = POPS.map(([v, l]) => `<button data-act="pop" data-v="${v}">${l}</button>`).join("");
+  else if (P === "pops") row = POPS.map(([v, l]) => `<button data-act="pop" data-v="${v}">${l}</button>`).join("") + SOUNDS.map(([v, l]) => `<button class="snd" data-act="sfxPlay" data-v="${v}">${l}</button>`).join("");
   else row = STYLES.map(st => `<button class="${g.style === st.id ? "on" : ""}" data-act="gStyleRec" data-v="${st.id}">${st.name}</button>`).join("")
     + [[.85, "Small"], [1, "Medium"], [1.15, "Large"]].map(([v, l]) => `<button class="${(g.bugSize || 1) === v ? "on" : ""}" data-act="gSize" data-v="${v}">${l}</button>`).join("")
-    + `<button data-act="gPos" data-v="${g.bugPos === "top" ? "bottom" : "top"}">Bug to ${g.bugPos === "top" ? "bottom" : "top"}</button><button data-act="spotShow">${g.spotShow !== false ? "Hide spot" : "Show spot"}</button>`;
+    + `<button data-act="gPos" data-v="${g.bugPos === "top" ? "bottom" : "top"}">Bug to ${g.bugPos === "top" ? "bottom" : "top"}</button><button data-act="spotShow">${g.spotShow !== false ? "Hide spot" : "Show spot"}</button>` + lookExtrasHTML(g);
   return `${side("away", A)}
     <div class="rc-mid">
-      <div class="rc-tabs">${REC_PAGES.map(([k, l]) => `<button class="${P === k ? "on" : ""}" data-act="recPage" data-v="${k}">${l}</button>`).join("")}<button data-act="recHide">Hide</button></div>
+      <div class="rc-tabs">${quick}${REC_PAGES.map(([k, l]) => `<button class="${P === k ? "on" : ""}" data-act="recPage" data-v="${k}">${l}</button>`).join("")}<button data-act="recHide">Hide</button></div>
       <div class="rc-row">${row}</div>
     </div>${side("home", H)}`;
 }
 async function openCam(g) {
+  SFX.ensure(); SFX.setCam(true);
   const ov = document.createElement("div"); ov.id = "recov"; ov.className = "recov";
   ov.innerHTML = `
     <video id="camv" playsinline muted autoplay></video>
@@ -724,15 +764,20 @@ async function openCam(g) {
   refreshLive(g);
   try { await startCamera(); } catch (e) { toast("Camera didn't open. Check that Safari is allowed to use the camera."); console.error(e); }
   try { REC.lock = await navigator.wakeLock?.request("screen"); } catch (e) {}
+  camExtrasStart(g);
   const ctx = REC.canvas.getContext("2d");
   const loop = () => {
     if (!document.getElementById("recov")) return;
     const v = REC.video, vw = v.videoWidth || 1280, vh = v.videoHeight || 720;
     let W = vw, H = vh; const k = Math.min(1, 1920 / Math.max(W, H)); W = Math.round(W * k); H = Math.round(H * k);
     if (REC.canvas.width !== W || REC.canvas.height !== H) { REC.canvas.width = W; REC.canvas.height = H; }
-    if (v.readyState >= 2) ctx.drawImage(v, 0, 0, W, H); else { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); }
+    const now = performance.now();
+    if (!drawReplay(ctx, W, H, now, g)) {
+      if (v.readyState >= 2) { ctx.drawImage(v, 0, 0, W, H); rbCapture(v, W, H, now); } else { ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H); }
+    }
     const s = g.s; if (s.running && curClock(s) === 0) onClockZero(g);
-    const now = performance.now(); drawBug(ctx, W, H, bugState(g, now), now);
+    const S = bugState(g, now); S.replay = !!REC.replay; S.replaySpeed = REC.replay ? "SLOW MO" : "";
+    drawBug(ctx, W, H, S, now); drawWipe(ctx, W, H, now, g); hlFrame();
     if (REC.rec && REC.rec.state === "recording") { const t = Math.floor((Date.now() - REC.t0) / 1000); document.getElementById("recTime").textContent = "REC " + fmtClock(t); }
     REC.loop = requestAnimationFrame(loop);
   };
@@ -752,8 +797,7 @@ function pickMime() {
 function recToggle(g) {
   if (REC.rec && REC.rec.state === "recording") { REC.rec.stop(); return; }
   if (!window.MediaRecorder || !REC.canvas.captureStream) return toast("This browser can't record. Update iOS, then try again in Safari.");
-  const cs = REC.canvas.captureStream(30);
-  REC.stream?.getAudioTracks().forEach(t => cs.addTrack(t));
+  const cs = new MediaStream([...REC.canvas.captureStream(30).getVideoTracks(), ...camAudioTracks()]);
   const mime = pickMime();
   try { REC.rec = new MediaRecorder(cs, mime ? { mimeType: mime, videoBitsPerSecond: 8_000_000 } : undefined); }
   catch (e) { REC.rec = new MediaRecorder(cs); }
@@ -781,7 +825,7 @@ function showSaveDialog(file) {
 function closeCam() {
   if (REC.rec && REC.rec.state === "recording" && !confirm("You're still recording. Stop and close the camera?")) return;
   if (REC.rec && REC.rec.state === "recording") REC.rec.stop();
-  cancelAnimationFrame(REC.loop); REC.stream?.getTracks().forEach(t => t.stop()); REC.stream = null;
+  cancelAnimationFrame(REC.loop); camExtrasStop(); REC.stream?.getTracks().forEach(t => t.stop()); REC.stream = null;
   REC.lock?.release?.(); document.getElementById("recov")?.remove(); document.body.classList.remove("noscroll");
 }
 
@@ -817,6 +861,7 @@ function statsTab(g, el) {
     <p class="muted">Quarter scores come from logged plays and the + buttons.</p>
     <div class="row"><button data-act="shareStats">Share stats (spreadsheet)</button><button data-act="copySummary">Copy summary</button></div>
   </section>
+  ${statsExtrasHTML(g)}
   <section class="card">
     <h2>Team stats</h2>
     <table class="teamstats"><tr><th></th><th>${esc(A.abbr)}</th><th>${esc(H.abbr)}</th></tr>
@@ -853,9 +898,11 @@ function setupTab(g, el) {
     <p class="muted">Corner always sits in the top left.</p>
     <div class="lbl">Ball spot on the bug</div><div class="seg"><button class="${g.spotShow !== false ? "on" : ""}" data-act="spotShow" data-v="1">Show</button><button class="${g.spotShow === false ? "on" : ""}" data-act="spotShow" data-v="0">Hide</button></div>
   </section>
+  ${setupExtrasHTML(g)}
   <section class="card">
     <label class="lbl">Game name</label><input data-input="gTitle" value="${esc(g.title || "")}" placeholder="Week 3">
     <label class="lbl">Minutes per quarter</label><input data-input="gQ" type="number" inputmode="numeric" value="${g.qLen}">
+    ${seasonSelectHTML(g.seasonId || "", "gSeason")}
     <div class="row" style="margin-top:12px"><a class="btn" href="#/team/${g.awayId}">Edit ${esc(sideTeam(g, "away").abbr)}</a><a class="btn" href="#/team/${g.homeId}">Edit ${esc(sideTeam(g, "home").abbr)}</a></div>
   </section>
   <section class="card">
@@ -922,7 +969,7 @@ const ACT = {
   ngStyle: el => { window.NG.style = el.dataset.v; route(); },
   createGame: () => {
     const NG = window.NG; if (NG.awayId === NG.homeId) return toast("Pick two different teams");
-    const g = { id: uid(), created: Date.now(), updated: Date.now(), awayId: NG.awayId, homeId: NG.homeId, title: NG.title, style: NG.style, spotShow: true, qLen: +NG.qLen || 12, s: newGameState(+NG.qLen || 12), plays: [], undo: [] };
+    const g = { id: uid(), created: Date.now(), updated: Date.now(), awayId: NG.awayId, homeId: NG.homeId, title: NG.title, seasonId: NG.seasonId || "", style: NG.style, spotShow: true, qLen: +NG.qLen || 12, s: newGameState(+NG.qLen || 12), plays: [], undo: [] };
     DB.games.push(g); persist(); window.NG = null; go(`#/game/${g.id}/live`);
   },
   pts: (el, g) => {
@@ -933,9 +980,11 @@ const ACT = {
     if (v === 6) { banner(g, "td", "Touchdown", "", side); g.s.ddShow = false; }
     if (v === 3) { banner(g, "fg", "Field Goal", "", side); g.s.ball = side; turnover(g.s, other(side)); kickoffSpot(g.s); g.s.ddShow = true; }
     if (v === 1) { g.s.ball = side; turnover(g.s, other(side)); kickoffSpot(g.s); g.s.ddShow = true; }
+    const last = g.plays[g.plays.length - 1]; if (last && last.type === "adj") last.wp = winProb(g).home;
+    if (v === 3 || v === 1) newDrive(g);
     persist(); refreshLive(g);
   },
-  ball: (el, g) => { snapshot(g); turnover(g.s, el.dataset.side); g.s.ddShow = true; persist(); refreshLive(g); },
+  ball: (el, g) => { snapshot(g); turnover(g.s, el.dataset.side); g.s.ddShow = true; newDrive(g); persist(); refreshLive(g); },
   timeout: (el, g) => {
     const side = el.dataset.side; if (g.s[side].to <= 0) return toast("No timeouts left");
     snapshot(g); g.s[side].to--; freezeClock(g.s); banner(g, "to", "Timeout", sideTeam(g, side).name, side, 3.5); persist(); refreshLive(g);
@@ -971,6 +1020,7 @@ const ACT = {
   ddShow: (el, g) => { g.s.ddShow = !g.s.ddShow; persist(); refreshLive(g); },
   pop: (el, g) => {
     const v = el.dataset.v, b = g.s.ball, d = other(b), T = side => sideTeam(g, side).abbr;
+    RT.bq = []; if (popExtra(g, v)) return;
     if (v === "td") banner(g, "td", "Touchdown", "", b);
     else if (v === "flag") banner(g, "flag", "Flag", "On the play", null, 3.5);
     else if (v === "first") banner(g, "to", "First Down", T(b), b, 3);
@@ -1009,7 +1059,7 @@ const ACT = {
   savePlay: (el, g) => savePlay(g),
   openCam: (el, g) => openCam(g),
   closeCam: () => closeCam(),
-  flipCam: async () => { if (REC.rec && REC.rec.state === "recording") return toast("Stop recording to flip the camera"); REC.facing = REC.facing === "environment" ? "user" : "environment"; await startCamera(); },
+  flipCam: async () => { if (REC.rec && REC.rec.state === "recording") return toast("Stop recording to flip the camera"); REC.facing = REC.facing === "environment" ? "user" : "environment"; await startCamera(); SFX.mix(REC.stream.getAudioTracks()); },
   recToggle: (el, g) => recToggle(g),
   shareClip: el => { const d = el.closest(".savedlg"); shareFile(d._file); },
   closeDlg: el => el.closest(".savedlg").remove(),
@@ -1032,7 +1082,7 @@ const ACT = {
   },
   gStyle: (el, g) => { g.style = el.dataset.v; persist(); route(); },
   rematch: (el, g) => {
-    const n = { id: uid(), created: Date.now(), updated: Date.now(), awayId: g.awayId, homeId: g.homeId, title: "", style: g.style, bugSize: g.bugSize, bugPos: g.bugPos, spotShow: g.spotShow, qLen: g.qLen, s: newGameState(g.qLen), plays: [], undo: [] };
+    const n = { id: uid(), created: Date.now(), updated: Date.now(), awayId: g.awayId, homeId: g.homeId, title: "", seasonId: g.seasonId || "", style: g.style, popMode: g.popMode, wpShow: g.wpShow, driveShow: g.driveShow, sfx: g.sfx, bugSize: g.bugSize, bugPos: g.bugPos, spotShow: g.spotShow, qLen: g.qLen, s: newGameState(g.qLen), plays: [], undo: [] };
     DB.games.push(n); persist(); go(`#/game/${n.id}/live`);
   },
   deleteGame: (el, g) => { if (!confirm("Delete this game and its stats?")) return; DB.games = DB.games.filter(x => x.id !== g.id); persist(); go("#/"); },
@@ -1060,7 +1110,7 @@ const CHANGE = {
     const f = el.files[0]; if (!f) return;
     try { const d = JSON.parse(await f.text()); if (!d.teams || !d.games) throw 0;
       if (!confirm(`Load this backup? It has ${d.teams.length} teams and ${d.games.length} games, and it replaces what's on this phone now.`)) return;
-      DB = d; persist(); route(); toast("Backup loaded"); } catch (e) { toast("That file isn't a scoreboard backup"); }
+      DB = d; DB.seasons = DB.seasons || []; persist(); route(); toast("Backup loaded"); } catch (e) { toast("That file isn't a scoreboard backup"); }
   },
 };
 document.addEventListener("click", e => {
@@ -1074,4 +1124,3 @@ document.addEventListener("change", e => {
   const i = e.target.dataset.input; if (i && e.target.tagName === "SELECT" && INPUT[i]) INPUT[i](e.target.value, currentGame());
 });
 
-document.fonts.ready.then(() => Promise.all(["800 40px Barlow", "700 40px Barlow", "600 40px Barlow", "700 40px SairaC", "800 40px SairaC", "600 40px SairaC", "600 40px Teko", "500 40px Teko"].map(f => document.fonts.load(f)))).finally(route);
