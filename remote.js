@@ -71,12 +71,13 @@ function screenCmd(g, k) {
   else if (k === "replay") startReplay(g);
   else if (k === "highlight") grabHighlight(g);
   else if (k === "flip") ACT.flipCam();
+  else if (k === "live") { if (LIVE.code) stopLive(); else goLive(g); }
   setTimeout(sendScreenStatus, 400);
 }
 function sendScreenStatus() {
   if (REMOTE.role !== "screen") return;
   const rec = !!(REC.rec && REC.rec.state === "recording");
-  fb("PUT", roomUrl(REMOTE.code, "/screen"), { at: Date.now(), rec, recSec: rec ? Math.floor((Date.now() - REC.t0) / 1000) : 0, hl: HL.count || 0, mic: !!(REC.stream && REC.stream.getAudioTracks().length), cam: !!REC.stream }).catch(() => {});
+  fb("PUT", roomUrl(REMOTE.code, "/screen"), { at: Date.now(), rec, recSec: rec ? Math.floor((Date.now() - REC.t0) / 1000) : 0, hl: HL.count || 0, live: LIVE.code || "", watching: liveCount(), mic: !!(REC.stream && REC.stream.getAudioTracks().length), cam: !!REC.stream }).catch(() => {});
 }
 function screenOverlayHTML(g) {
   if (g.remoteWaiting) return `<div class="rm-wait"><small>CAMERA MODE</small><b class="rm-code">${REMOTE.code}</b><span>On your other phone: open the game, go to <b>Record</b>, tap <b>Connect to camera</b> and type this code.</span>
@@ -128,6 +129,7 @@ function remoteBarHTML(g) {
   return `<section class="card rmbar"><h2>Camera phone <small>code ${REMOTE.code} · ${alive ? (sc.rec ? `<span class="recdot">REC ${fmtClock(sc.recSec || 0)}</span>` : "connected") : "not responding"}</small></h2>
     <div class="row"><button class="${sc.rec ? "stop" : "go"}" data-act="rmCmd" data-v="rec">${sc.rec ? "Stop recording" : "Start recording"}</button>
       <button data-act="rmCmd" data-v="replay">Replay</button><button data-act="rmCmd" data-v="highlight">Highlight${sc.hl ? ` (${sc.hl})` : ""}</button></div>
+    <div class="row"><button class="livebtn ${sc.live ? "on" : ""}" data-act="rmCmd" data-v="live">${sc.live ? `LIVE · code ${sc.live} · ${sc.watching || 0} watching (tap to stop)` : "Go live (private)"}</button></div>
     <div class="row"><button data-act="rmCmd" data-v="flip">Flip camera</button><button class="ghost" data-act="rmStop">Disconnect</button></div>
     ${sc.mic === false ? `<p class="muted">The camera phone has no microphone permission, so its video won't have sound.</p>` : ""}
   </section>`;

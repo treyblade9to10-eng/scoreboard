@@ -379,6 +379,7 @@ function route() {
   const [v, id, tab] = parts;
   if (v === "team") return viewTeam(id);
   if (v === "new") return viewNewGame();
+  if (v === "watch") return viewWatch(id);
   if (v === "season" && season(id)) return viewSeason(season(id));
   if (v === "seasonedit") return viewSeasonEdit(id);
   if (v === "game" && game(id)) return viewGame(game(id), tab || "live");
@@ -407,7 +408,7 @@ function viewHome() {
   </section>
   ${seasonsHomeHTML()}
   <section class="card"><h2>Second phone</h2><p class="muted">Want only the video and score bug on screen (like on a TV)? Make this phone the camera, and score from another phone.</p>
-    <button class="wide" data-act="beCamera">Be the camera</button></section>
+    <div class="row"><button data-act="beCamera">Be the camera</button><button data-act="watchHome">Watch a live game</button></div></section>
   <section>
     <div class="sechead"><h2>Teams</h2><button data-act="newTeam">+ New team</button></div>
     <div class="teamgrid">
@@ -751,7 +752,7 @@ function recControlsHTML(g) {
     + `<button data-act="gPos" data-v="${g.bugPos === "top" ? "bottom" : "top"}">Bug to ${g.bugPos === "top" ? "bottom" : "top"}</button><button data-act="spotShow">${g.spotShow !== false ? "Hide spot" : "Show spot"}</button>` + lookExtrasHTML(g);
   return `${side("away", A)}
     <div class="rc-mid">
-      <div class="rc-tabs">${quick}${REC_PAGES.map(([k, l]) => `<button class="${P === k ? "on" : ""}" data-act="recPage" data-v="${k}">${l}</button>`).join("")}${cleanBtn}<button data-act="recHide">Hide</button></div>
+      <div class="rc-tabs">${quick}${liveBtnHTML()}${REC_PAGES.map(([k, l]) => `<button class="${P === k ? "on" : ""}" data-act="recPage" data-v="${k}">${l}</button>`).join("")}${cleanBtn}<button data-act="recHide">Hide</button></div>
       <div class="rc-row">${row}</div>
     </div>${side("home", H)}`;
 }
@@ -842,7 +843,7 @@ function showSaveDialog(file) {
 }
 function closeCam() {
   if (REC.rec && REC.rec.state === "recording" && !confirm("You're still recording. Stop and close the camera?")) return;
-  if (REMOTE.role === "screen") stopRemote();
+  stopLive(); if (REMOTE.role === "screen") stopRemote();
   if (REC.rec && REC.rec.state === "recording") REC.rec.stop();
   cancelAnimationFrame(REC.loop); camExtrasStop(); REC.stream?.getTracks().forEach(t => t.stop()); REC.stream = null;
   REC.clean = false; unClean(false); REC.lock?.release?.(); document.getElementById("recov")?.remove(); document.body.classList.remove("noscroll");
