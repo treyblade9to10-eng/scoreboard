@@ -873,6 +873,8 @@ function statsTab(g, el) {
       ${[["away", A], ["home", H]].map(([sd, T]) => `<tr><td class="pn">${esc(T.abbr)}</td>${qs.map(q => `<td>${line[sd][q] || 0}</td>`).join("")}<td><b>${g.s[sd].score}</b></td></tr>`).join("")}</table>
     <p class="muted">Quarter scores come from logged plays and the + buttons.</p>
     <div class="row"><button data-act="shareStats">Share stats (spreadsheet)</button><button data-act="copySummary">Copy summary</button></div>
+    <button class="primary wide" data-act="rbExport" style="margin-top:8px">Stat sheet for NFL Rebuilder</button>
+    <p class="muted">Save it to Files, then in NFL Rebuilder go to MORE, then IMPORT SCOREBOARD STATS.</p>
   </section>
   ${statsExtrasHTML(g)}
   <section class="card">

@@ -81,6 +81,7 @@ function viewSeason(se) {
   const rec = r => `${r.w}-${r.l}${r.t ? "-" + r.t : ""}`;
   $app.innerHTML = `<header class="top"><button class="back" data-act="backHome">‹ Home</button><h1>${esc(se.name)}</h1></header>
   <div class="row"><button class="primary" data-act="seasonGame" data-v="${se.id}">+ New game in this season</button><a class="btn" href="#/seasonedit/${se.id}">Edit</a></div>
+  <div class="row"><button data-act="rbExportSeason" data-v="${se.id}">Season stat sheet for NFL Rebuilder</button></div>
   <section class="card"><h2>Standings <small>only finished games count</small></h2>
     <table class="standings"><tr><th>Team</th><th>W-L</th><th>PF</th><th>PA</th><th>DIFF</th><th>STRK</th></tr>
     ${st.map((r, i) => { const T = team(r.id); return `<tr><td class="pn"><span class="rk">${i + 1}</span>${teamChip(T)} ${esc(T.abbr)}</td><td><b>${rec(r)}</b></td><td>${r.pf}</td><td>${r.pa}</td><td>${r.pf - r.pa > 0 ? "+" : ""}${r.pf - r.pa}</td><td>${r.streak || "-"}</td></tr>`; }).join("")}</table>

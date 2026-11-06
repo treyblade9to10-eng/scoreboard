@@ -236,3 +236,37 @@ Object.assign(ACT, {
   potgCard: (el, g) => potgCard(g),
   recapCard: (el, g) => recapCard(g),
 });
+
+// ---------- stat sheet for NFL Rebuilder ----------
+// Same stat names NFL Rebuilder uses, so it can add them straight onto your players there.
+function rebuilderGame(g) {
+  const { P } = computeStats(g), A = sideTeam(g, "away"), H = sideTeam(g, "home");
+  const rosterPos = (side, x) => { const T = team(side === "away" ? g.awayId : g.homeId); const r = T && T.roster.find(p => String(p.num) === String(x.num) && (!x.name || p.name === x.name)); return r ? r.pos || "" : ""; };
+  const players = [];
+  for (const side of ["away", "home"]) for (const x of Object.values(P[side])) {
+    const T = side === "away" ? A : H;
+    const row = { team: side, teamName: T.name, abbr: T.abbr, num: x.num, name: x.name || "", pos: rosterPos(side, x),
+      cmp: x.pass.c, att: x.pass.a, py: x.pass.y, ptd: x.pass.td, int: x.pass.i, car: x.rush.n, ry: x.rush.y, rtd: x.rush.td,
+      rec: x.rec.n, rcy: x.rec.y, rctd: x.rec.td, tkl: x.def.t, sk: x.def.s, dint: x.def.i, ff: x.def.ff, fgm: x.kick.fm, fga: x.kick.fa,
+      xpm: x.kick.pm, xpa: x.kick.pa, punts: x.punt.n, puntY: x.punt.y, kr: x.ret.kr, kry: x.ret.kry, pr: x.ret.pr, pry: x.ret.pry, rettd: x.ret.td };
+    for (const k in row) if (row[k] === 0) delete row[k];
+    players.push(row);
+  }
+  return { id: g.id, date: new Date(g.created).toISOString().slice(0, 10), title: g.title || "", final: g.s.qtr === "FINAL",
+    away: { name: A.name, abbr: A.abbr, score: g.s.away.score }, home: { name: H.name, abbr: H.abbr, score: g.s.home.score }, players };
+}
+function rebuilderFile(games, label) {
+  const data = { format: "scoreboard-stats", version: 1, made: new Date().toISOString(), games: games.map(rebuilderGame) };
+  return new File([JSON.stringify(data, null, 1)], `Stat-sheet-${label.replace(/[^\w-]+/g, "-")}.json`, { type: "application/json" });
+}
+Object.assign(ACT, {
+  rbExport: (el, g) => {
+    if (!g.plays.some(p => p.type !== "adj")) return toast("Log some plays first so there are player stats");
+    const A = sideTeam(g, "away"), H = sideTeam(g, "home"); shareFile(rebuilderFile([g], `${A.abbr}-vs-${H.abbr}-${new Date(g.created).toISOString().slice(0, 10)}`));
+  },
+  rbExportSeason: el => {
+    const se = season(el.dataset.v), games = seasonGames(se).filter(g => g.plays.length);
+    if (!games.length) return toast("No games with stats in this season yet");
+    shareFile(rebuilderFile(games, se.name));
+  },
+});
