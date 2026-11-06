@@ -54,7 +54,7 @@ function gameLine(g, side, who) {
   return b.length ? "Today: " + b.slice(0, 2).join("  ·  ") : "";
 }
 function playerPop(g, p) {
-  const mode = g.popMode || "all"; if (mode === "off") return;
+  const mode = g.popMode || "off"; if (mode === "off") return;
   const y = +p.yards || 0, ret = +p.ret || 0;
   let who = null, side = p.team, line = "", big = false;
   if (p.type === "pass") {
@@ -118,21 +118,21 @@ function popExtra(g, v) {
 // ---------- settings UI ----------
 const onOff = (k, g, on, off) => `<div class="seg"><button class="${g[k] !== false ? "on" : ""}" data-act="gTog" data-k="${k}" data-v="1">${on || "On"}</button><button class="${g[k] === false ? "on" : ""}" data-act="gTog" data-k="${k}" data-v="0">${off || "Off"}</button></div>`;
 function setupExtrasHTML(g) {
-  const pm = g.popMode || "all";
+  const pm = g.popMode || "off";
   return `<section class="card"><h2>Extras on the video</h2>
     <div class="lbl">Drive tracker <i>(plays, yards and time on this drive)</i></div>${onOff("driveShow", g)}
     <div class="lbl">Win chance bar</div>${onOff("wpShow", g)}
-    <div class="lbl">Player pop-ups after each play</div><div class="seg">${[["all", "Every play"], ["big", "Big plays"], ["off", "Off"]].map(([v, l]) => `<button class="${pm === v ? "on" : ""}" data-act="popMode" data-v="${v}">${l}</button>`).join("")}</div>
+    <div class="lbl">Show plays on the video <i>(a player card after each play you log; off unless you turn it on)</i></div><div class="seg">${[["all", "Every play"], ["big", "Big plays"], ["off", "Off"]].map(([v, l]) => `<button class="${pm === v ? "on" : ""}" data-act="popMode" data-v="${v}">${l}</button>`).join("")}</div>
     <div class="lbl">Sound effects <i>(horn on touchdowns, whistle on flags, crowd...)</i></div>${onOff("sfx", g)}
     <div class="lbl">Hear sounds out loud while filming <i>(this phone only)</i></div><div class="seg"><button class="${SFX.S.hear ? "on" : ""}" data-act="hear" data-v="1">Yes</button><button class="${!SFX.S.hear ? "on" : ""}" data-act="hear" data-v="0">No, only in the video</button></div>
     <div class="lbl">Highlight button <i>(keeps the last 24 seconds ready to save)</i></div>${onOff("hlOn", g)}
   </section>`;
 }
 function lookExtrasHTML(g) {
-  const pm = g.popMode || "all";
+  const pm = g.popMode || "off";
   return `<button class="${g.driveShow !== false ? "on" : ""}" data-act="gTog" data-k="driveShow">Drive</button>
     <button class="${g.wpShow !== false ? "on" : ""}" data-act="gTog" data-k="wpShow">Win %</button>
-    <button class="${pm !== "off" ? "on" : ""}" data-act="popMode" data-v="${pm === "all" ? "big" : pm === "big" ? "off" : "all"}">Player pops: ${{ all: "all", big: "big", off: "off" }[pm]}</button>
+    <button class="${pm !== "off" ? "on" : ""}" data-act="popMode" data-v="${pm === "all" ? "big" : pm === "big" ? "off" : "all"}">Show plays: ${{ all: "every play", big: "big plays", off: "off" }[pm]}</button>
     <button class="${g.sfx !== false ? "on" : ""}" data-act="gTog" data-k="sfx">Sounds</button>
     <button class="${SFX.S.hear ? "on" : ""}" data-act="hear" data-v="${SFX.S.hear ? "0" : "1"}">Hear sounds</button>
     <button class="${g.hlOn !== false ? "on" : ""}" data-act="gTog" data-k="hlOn">Highlights</button>`;

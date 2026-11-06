@@ -87,9 +87,9 @@ function viewSeason(se) {
   </section>
   <section><h2>Games</h2>${games.map(g => {
     const A = sideTeam(g, "away"), H = sideTeam(g, "home"), q = isFinal(g) ? "Final" : g.s.qtr === "HALF" ? "Half" : `Q${g.s.qtr}`;
-    return `<a class="gamecard" href="#/game/${g.id}"><div class="gc-team">${teamChip(A)}<span>${esc(A.abbr)}</span><b>${g.s.away.score}</b></div>
+    return `<div class="gcwrap"><a class="gamecard" href="#/game/${g.id}"><div class="gc-team">${teamChip(A)}<span>${esc(A.abbr)}</span><b>${g.s.away.score}</b></div>
       <div class="gc-mid"><span>${esc(g.title || "")}</span><small>${q} · ${new Date(g.created).toLocaleDateString()}</small></div>
-      <div class="gc-team r"><b>${g.s.home.score}</b><span>${esc(H.abbr)}</span>${teamChip(H)}</div></a>`;
+      <div class="gc-team r"><b>${g.s.home.score}</b><span>${esc(H.abbr)}</span>${teamChip(H)}</div></a><button class="gcdel" data-act="delGame" data-v="${g.id}" aria-label="Delete game">✕</button></div>`;
   }).join("") || `<p class="empty">No games in this season yet.</p>`}</section>
   <section class="card"><h2>Season leaders</h2><div class="leaders">${LEADERS.map(([l, f]) => {
     const top = pl.filter(x => (f(x) || 0) > 0).sort((a, b) => f(b) - f(a)).slice(0, 3);

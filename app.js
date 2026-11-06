@@ -400,10 +400,11 @@ function viewHome() {
     ${games.length ? games.map(g => {
       const A = sideTeam(g, "away"), H = sideTeam(g, "home");
       const q = g.s.qtr === "FINAL" ? "Final" : g.s.qtr === "HALF" ? "Half" : `Q${g.s.qtr}`;
-      return `<a class="gamecard" href="#/game/${g.id}">
+      return `<div class="gcwrap"><a class="gamecard" href="#/game/${g.id}">
         <div class="gc-team">${teamChip(A)}<span>${esc(A.abbr)}</span><b>${g.s.away.score}</b></div>
         <div class="gc-mid"><span>${esc(g.title || season(g.seasonId)?.name || "")}</span><small>${q} · ${new Date(g.created).toLocaleDateString()}</small></div>
-        <div class="gc-team r"><b>${g.s.home.score}</b><span>${esc(H.abbr)}</span>${teamChip(H)}</div></a>`;
+        <div class="gc-team r"><b>${g.s.home.score}</b><span>${esc(H.abbr)}</span>${teamChip(H)}</div></a>
+        <button class="gcdel" data-act="delGame" data-v="${g.id}" aria-label="Delete game">✕</button></div>`;
     }).join("") : `<p class="empty">No games yet. Make your teams first, then start a game.</p>`}
   </section>
   ${seasonsHomeHTML()}
@@ -508,7 +509,7 @@ function viewNewGame() {
 function viewGame(g, tab) {
   const A = sideTeam(g, "away"), H = sideTeam(g, "home");
   $app.innerHTML = `
-  <header class="top game"><button class="back" data-act="backHome">‹ Games</button><h1>${esc(A.abbr)} vs ${esc(H.abbr)}</h1></header>
+  <header class="top game"><button class="back" data-act="backHome">‹ Games</button><h1>${esc(A.abbr)} vs ${esc(H.abbr)}</h1><button class="small ghost hdel" data-act="delGame" data-v="${g.id}">Delete</button></header>
   <nav class="tabs">${[["live", "Live"], ["record", "Record"], ["stats", "Stats"], ["setup", "Setup"]].map(([k, l]) => `<a href="#/game/${g.id}/${k}" class="${tab === k ? "on" : ""}">${l}</a>`).join("")}</nav>
   <div id="tab"></div>`;
   const el = document.getElementById("tab");
@@ -958,6 +959,15 @@ function unClean(rearm) {
   clearTimeout(REC.cleanT); document.getElementById("recov")?.classList.remove("clean"); document.body.classList.remove("cleanrec");
   if (rearm) armClean();
 }
+function deleteGameById(id) {
+  const g = game(id); if (!g) return;
+  const A = sideTeam(g, "away"), H = sideTeam(g, "home");
+  if (!confirm(`Delete ${A.abbr} ${g.s.away.score} - ${H.abbr} ${g.s.home.score}${g.title ? " (" + g.title + ")" : ""}? Its stats and saved highlights go too. This can't be undone.`)) return;
+  DB.games = DB.games.filter(x => x.id !== id); persist();
+  if (typeof ClipDB !== "undefined") ClipDB.all().then(cs => cs.filter(c => c.gid === id).forEach(c => ClipDB.del(c.id))).catch(() => {});
+  toast("Game deleted");
+  if (location.hash.startsWith("#/game/" + id)) go("#/"); else route();
+}
 // small in-page question box (prompt() would freeze the recording)
 function ask(title, fields, cb) {
   const d = document.createElement("div"); d.className = "savedlg";
@@ -1119,7 +1129,8 @@ const ACT = {
     const n = { id: uid(), created: Date.now(), updated: Date.now(), awayId: g.awayId, homeId: g.homeId, title: "", seasonId: g.seasonId || "", style: g.style, popMode: g.popMode, wpShow: g.wpShow, driveShow: g.driveShow, sfx: g.sfx, bugSize: g.bugSize, bugPos: g.bugPos, spotShow: g.spotShow, qLen: g.qLen, s: newGameState(g.qLen), plays: [], undo: [] };
     DB.games.push(n); persist(); go(`#/game/${n.id}/live`);
   },
-  deleteGame: (el, g) => { if (!confirm("Delete this game and its stats?")) return; DB.games = DB.games.filter(x => x.id !== g.id); persist(); go("#/"); },
+  deleteGame: (el, g) => deleteGameById(g.id),
+  delGame: el => deleteGameById(el.dataset.v),
   exportAll: () => shareFile(new File([JSON.stringify(DB)], `Scoreboard-backup-${new Date().toISOString().slice(0, 10)}.json`, { type: "application/json" })),
 };
 const INPUT = {
