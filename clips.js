@@ -11,7 +11,28 @@ const ClipDB = {
 };
 
 // ---------- audio ----------
-function camAudioTracks() { return REC.mix ? REC.mix.getAudioTracks() : (REC.stream ? REC.stream.getAudioTracks() : []); }
+// mic + sound effects when the phone's audio engine is running, otherwise the plain microphone so the video is never silent
+function camAudioTracks() {
+  const mic = REC.stream ? REC.stream.getAudioTracks().filter(t => t.readyState === "live") : [];
+  if (REC.mix && SFX.running() && mic.length) { const t = REC.mix.getAudioTracks(); if (t.length && t[0].readyState === "live") return t; }
+  return mic;
+}
+// little mic level bar in the top corner so you can see sound is coming in
+function micMeterStart() {
+  try {
+    const c = SFX.ctx(); if (!c || !REC.stream || !REC.stream.getAudioTracks().length) return;
+    REC.an = c.createAnalyser(); REC.an.fftSize = 512; REC.anSrc = c.createMediaStreamSource(new MediaStream(REC.stream.getAudioTracks())); REC.anSrc.connect(REC.an);
+    REC.anBuf = new Uint8Array(REC.an.fftSize);
+  } catch (e) { REC.an = null; }
+}
+function micMeterTick() {
+  const el = document.getElementById("micBar"); if (!el) return;
+  if (!REC.stream || !REC.stream.getAudioTracks().length) { el.parentNode.classList.add("off"); return; }
+  if (!REC.an) return; REC.an.getByteTimeDomainData(REC.anBuf);
+  let m = 0; for (const v of REC.anBuf) m = Math.max(m, Math.abs(v - 128));
+  el.style.width = Math.min(100, m / 64 * 100) + "%";
+}
+function micMeterStop() { try { REC.anSrc?.disconnect(); } catch (e) {} REC.an = REC.anSrc = null; }
 
 // ---------- instant replay ring buffer ----------
 const RB = { frames: [], fps: 12, max: 84, last: 0, w: 0, h: 0 };
@@ -104,14 +125,15 @@ function updateCamButtons() {
 
 // ---------- camera open / close ----------
 function camExtrasStart(g) {
-  REC.mix = SFX.mix(REC.stream ? REC.stream.getAudioTracks() : []);
+  REC.mix = SFX.mix(REC.stream ? REC.stream.getAudioTracks() : []); micMeterStart();
+  REC.clean = localStorage.getItem("sb-clean") !== "0"; SFX.setLoud(REC.clean); if (REC.clean) armClean();
   HL.count = 0; RB.frames = []; REC.replay = null;
   if (g.hlOn !== false) setTimeout(() => document.getElementById("recov") && hlStart(), 1500);
   updateCamButtons();
 }
 function camExtrasStop() {
   hlStop(); REC.replay = null; RB.frames = [];
-  SFX.setCam(false);
+  micMeterStop(); SFX.setLoud(false); SFX.setCam(false);
 }
 
 // ---------- highlights list on the Record tab ----------

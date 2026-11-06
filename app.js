@@ -701,7 +701,8 @@ function recordTab(g, el) {
     <ol class="steps"><li>Turn the phone sideways.</li><li>Tap <b>Open camera</b>, then the red button to record.</li>
       <li>Score buttons are on the left and right. The middle has tabs: <b>Clock</b> (start/stop, next quarter), <b>Downs</b> (down, distance, ball spot), <b>Plays</b> (log a pass, run, punt...), <b>Pop-ups</b> and <b>Look</b> (change the bug).</li>
       <li>Tap <b>Hide</b> to see the whole picture. The video keeps recording.</li>
-      <li>Using the iPhone's own Screen Recording? Tap <b>Screen rec mode</b>. After a second every button disappears and only the camera and score bug are on screen. Tap anywhere to bring the buttons back, and they hide again on their own after 5 seconds.</li>
+      <li><b>Auto-hide</b> is on to start: 5 seconds after your last tap, every button disappears and only the camera and score bug are on screen. That's what a TV (Screen Mirroring) or the iPhone's Screen Recording will show. Tap anywhere to bring the buttons back. Turn it off with the <b>Auto-hide</b> button.</li>
+      <li>Using the iPhone's Screen Recording? Long-press the record button in Control Center and turn <b>Microphone</b> on, or it records with no sound.</li>
       <li><b>Replay</b> shows the last few seconds again in slow motion, right in your video. <b>Highlight</b> saves the last 12 to 24 seconds as its own clip (works even when you're not recording).</li>
       <li>When you stop, tap <b>Save video</b> and pick <b>Save Video</b> to put it in Photos.</li></ol>
     <p class="muted">First time? Record a 10 second test clip and check it saved right before the real game.</p>
@@ -714,7 +715,7 @@ const REC_PAGES = [["game", "Clock"], ["down", "Downs"], ["plays", "Plays"], ["p
 function recControlsHTML(g) {
   const s = g.s, A = sideTeam(g, "away"), H = sideTeam(g, "home");
   const quick = `<button data-act="replay" id="rpBtn" class="${REC.replay ? "on" : ""}">${REC.replay ? "End replay" : "Replay"}</button><button data-act="highlight" class="hlbtn" id="hlBtn">${HL.count ? `Highlight (${HL.count})` : "Highlight"}</button>`;
-  const cleanBtn = `<button data-act="cleanScreen" class="cleanbtn ${REC.clean ? "on" : ""}">${REC.clean ? "Screen rec: ON" : "Screen rec mode"}</button>`;
+  const cleanBtn = `<button data-act="cleanScreen" class="cleanbtn ${REC.clean ? "on" : ""}">${REC.clean ? "Auto-hide: ON" : "Auto-hide: OFF"}</button>`;
   if (REC.hide) return `<div class="rc-show">${quick}${cleanBtn}<button data-act="recHide">Show controls</button></div>`;
   const side = (sd, T) => `<div class="rc-team ${sd}" style="--c1:${T.c1}"><span>${esc(T.abbr)} <b>${s[sd].score}</b></span>
     <button data-act="pts" data-side="${sd}" data-v="6">+6</button><button data-act="pts" data-side="${sd}" data-v="3">+3</button>
@@ -755,7 +756,7 @@ async function openCam(g) {
     <canvas id="recc"></canvas>
     <div class="rec-top">
       <button class="x" data-act="closeCam">✕</button>
-      <span class="rec-time" id="recTime"></span><span class="sp"></span>
+      <span class="rec-time" id="recTime"></span><span class="mic" title="Microphone"><b>MIC</b><i><u id="micBar"></u></i></span><span class="sp"></span>
       <button data-act="flipCam" class="flip">Flip</button>
       <button class="recbtn" id="recBtn" data-act="recToggle"><i></i></button>
     </div>
@@ -785,7 +786,7 @@ async function openCam(g) {
     }
     const s = g.s; if (s.running && curClock(s) === 0) onClockZero(g);
     const S = bugState(g, now); S.replay = !!REC.replay; S.replaySpeed = REC.replay ? "SLOW MO" : "";
-    drawBug(ctx, W, H, S, now); drawWipe(ctx, W, H, now, g); hlFrame();
+    drawBug(ctx, W, H, S, now); drawWipe(ctx, W, H, now, g); hlFrame(); micMeterTick();
     if (REC.rec && REC.rec.state === "recording") { const t = Math.floor((Date.now() - REC.t0) / 1000); document.getElementById("recTime").textContent = "REC " + fmtClock(t); }
     REC.loop = requestAnimationFrame(loop);
   };
@@ -804,6 +805,8 @@ function pickMime() {
 }
 function recToggle(g) {
   if (REC.rec && REC.rec.state === "recording") { REC.rec.stop(); return; }
+  SFX.ensure(); // wake the audio engine on this tap (iPhones pause it until you touch the screen)
+  if (!REC.stream || !REC.stream.getAudioTracks().length) toast("No microphone, so this video will have no sound. Allow the microphone for this site in Safari settings.");
   if (!window.MediaRecorder || !REC.canvas.captureStream) return toast("This browser can't record. Update iOS, then try again in Safari.");
   const cs = new MediaStream([...REC.canvas.captureStream(30).getVideoTracks(), ...camAudioTracks()]);
   const mime = pickMime();
@@ -1029,7 +1032,10 @@ const ACT = {
   gStyleRec: (el, g) => { g.style = el.dataset.v; persist(); refreshLive(g); },
   recPage: (el, g) => { REC.page = el.dataset.v; refreshLive(g); },
   recHide: (el, g) => { REC.hide = !REC.hide; refreshLive(g); },
-  cleanScreen: (el, g) => { REC.clean = !REC.clean; refreshLive(g); if (REC.clean) setTimeout(goClean, 1200); else unClean(false); },
+  cleanScreen: (el, g) => {
+    REC.clean = !REC.clean; localStorage.setItem("sb-clean", REC.clean ? "1" : "0"); SFX.setLoud(REC.clean); refreshLive(g);
+    if (REC.clean) { toast("Buttons hide 5 seconds after your last tap. Tap anywhere to get them back."); armClean(); } else unClean(false);
+  },
   askCancel: el => el.closest(".savedlg").remove(),
   down: (el, g) => { g.s.down = +el.dataset.v; g.s.ddShow = true; persist(); refreshLive(g); },
   nextDown: (el, g) => { const s = g.s; s.down = s.down >= 4 ? 1 : s.down + 1; s.ddShow = true; persist(); refreshLive(g); },

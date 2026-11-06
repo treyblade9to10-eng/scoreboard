@@ -237,7 +237,11 @@ details.card{margin:10px 0}details.card summary{list-style:none;cursor:pointer}d
 .chips .chip{width:24px;height:24px;border-radius:6px;vertical-align:middle}
 .recov.clean .rec-top,.recov.clean .rec-ctl,.recov.clean .rotate-hint{display:none!important}
 .recov.clean canvas{width:100%;height:100%;object-fit:contain}
-body.cleanrec .toast{display:none}
+body.cleanrec .mic{display:flex;align-items:center;gap:5px;background:rgba(0,0,0,.45);border-radius:10px;padding:5px 8px;font:800 12px Barlow;color:#fff}
+.mic i{display:block;width:44px;height:6px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden}
+.mic u{display:block;height:100%;width:0;background:#3ddc6a;text-decoration:none}
+.mic.off b{color:#ff5a5a}.mic.off i{background:#ff5a5a}
+.toast{display:none}
 .cleanbtn.on{background:rgba(200,16,46,.9)!important;border-color:transparent!important}
 .toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#fff;color:#111;font-weight:600;padding:12px 18px;border-radius:12px;opacity:0;transition:all .25s;z-index:100;max-width:90vw;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.4)}
 .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -245,12 +249,12 @@ body.cleanrec .toast{display:none}
 </head>
 <body>
 <div id="app"></div>
-<div class="ver" hidden>v4.1</div>
-<script src="bug.js?v=5"></script>
-<script src="sfx.js?v=5"></script>
-<script src="app.js?v=5"></script>
-<script src="extras.js?v=5"></script>
-<script src="season.js?v=5"></script>
-<script src="clips.js?v=5"></script>
+<div class="ver" hidden>v4.2</div>
+<script src="bug.js?v=6"></script>
+<script src="sfx.js?v=6"></script>
+<script src="app.js?v=6"></script>
+<script src="extras.js?v=6"></script>
+<script src="season.js?v=6"></script>
+<script src="clips.js?v=6"></script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 // While the camera is open they get mixed with the microphone into the recording.
 window.SFX = (() => {
   let ctx = null, out = null, spk = null, dest = null, micSrc = null, noise = null;
-  const S = { on: true, hear: localStorage.getItem("sb-hear") === "1", camOpen: false };
+  const S = { on: true, hear: localStorage.getItem("sb-hear") === "1", camOpen: false, loud: false };
   function ensure() {
     if (!ctx) {
       const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null;
@@ -13,7 +13,8 @@ window.SFX = (() => {
     if (ctx.state === "suspended") ctx.resume();
     speaker(); return ctx;
   }
-  function speaker() { if (spk) spk.gain.value = !S.camOpen || S.hear ? 1 : 0; }
+  // out loud when not filming, when asked, or in screen rec / TV mode (so screen recordings and the TV get the sounds)
+  function speaker() { if (spk) spk.gain.value = !S.camOpen || S.hear || S.loud ? 1 : 0; }
   // returns a MediaStream with mic + sound effects mixed, or null if that can't be done
   function mix(micTracks) {
     try {
@@ -72,7 +73,8 @@ window.SFX = (() => {
     }
   }
   return {
-    S, ensure, mix, forBanner, play: k => PLAY[k] && PLAY[k](),
+    S, ensure, mix, forBanner, ctx: () => ctx, running: () => !!ctx && ctx.state === "running",
+    setLoud(v) { S.loud = v; speaker(); }, play: k => PLAY[k] && PLAY[k](),
     setCam(open) { S.camOpen = open; speaker(); },
     setHear(v) { S.hear = v; localStorage.setItem("sb-hear", v ? "1" : "0"); speaker(); },
   };
