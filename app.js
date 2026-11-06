@@ -701,6 +701,7 @@ function recordTab(g, el) {
     <ol class="steps"><li>Turn the phone sideways.</li><li>Tap <b>Open camera</b>, then the red button to record.</li>
       <li>Score buttons are on the left and right. The middle has tabs: <b>Clock</b> (start/stop, next quarter), <b>Downs</b> (down, distance, ball spot), <b>Plays</b> (log a pass, run, punt...), <b>Pop-ups</b> and <b>Look</b> (change the bug).</li>
       <li>Tap <b>Hide</b> to see the whole picture. The video keeps recording.</li>
+      <li>Using the iPhone's own Screen Recording? Tap <b>Screen rec mode</b>. After a second every button disappears and only the camera and score bug are on screen. Tap anywhere to bring the buttons back, and they hide again on their own after 5 seconds.</li>
       <li><b>Replay</b> shows the last few seconds again in slow motion, right in your video. <b>Highlight</b> saves the last 12 to 24 seconds as its own clip (works even when you're not recording).</li>
       <li>When you stop, tap <b>Save video</b> and pick <b>Save Video</b> to put it in Photos.</li></ol>
     <p class="muted">First time? Record a 10 second test clip and check it saved right before the real game.</p>
@@ -713,7 +714,8 @@ const REC_PAGES = [["game", "Clock"], ["down", "Downs"], ["plays", "Plays"], ["p
 function recControlsHTML(g) {
   const s = g.s, A = sideTeam(g, "away"), H = sideTeam(g, "home");
   const quick = `<button data-act="replay" id="rpBtn" class="${REC.replay ? "on" : ""}">${REC.replay ? "End replay" : "Replay"}</button><button data-act="highlight" class="hlbtn" id="hlBtn">${HL.count ? `Highlight (${HL.count})` : "Highlight"}</button>`;
-  if (REC.hide) return `<div class="rc-show">${quick}<button data-act="recHide">Show controls</button></div>`;
+  const cleanBtn = `<button data-act="cleanScreen" class="cleanbtn ${REC.clean ? "on" : ""}">${REC.clean ? "Screen rec: ON" : "Screen rec mode"}</button>`;
+  if (REC.hide) return `<div class="rc-show">${quick}${cleanBtn}<button data-act="recHide">Show controls</button></div>`;
   const side = (sd, T) => `<div class="rc-team ${sd}" style="--c1:${T.c1}"><span>${esc(T.abbr)} <b>${s[sd].score}</b></span>
     <button data-act="pts" data-side="${sd}" data-v="6">+6</button><button data-act="pts" data-side="${sd}" data-v="3">+3</button>
     <button data-act="pts" data-side="${sd}" data-v="2">+2</button><button data-act="pts" data-side="${sd}" data-v="1">+1</button>
@@ -741,7 +743,7 @@ function recControlsHTML(g) {
     + `<button data-act="gPos" data-v="${g.bugPos === "top" ? "bottom" : "top"}">Bug to ${g.bugPos === "top" ? "bottom" : "top"}</button><button data-act="spotShow">${g.spotShow !== false ? "Hide spot" : "Show spot"}</button>` + lookExtrasHTML(g);
   return `${side("away", A)}
     <div class="rc-mid">
-      <div class="rc-tabs">${quick}${REC_PAGES.map(([k, l]) => `<button class="${P === k ? "on" : ""}" data-act="recPage" data-v="${k}">${l}</button>`).join("")}<button data-act="recHide">Hide</button></div>
+      <div class="rc-tabs">${quick}${REC_PAGES.map(([k, l]) => `<button class="${P === k ? "on" : ""}" data-act="recPage" data-v="${k}">${l}</button>`).join("")}${cleanBtn}<button data-act="recHide">Hide</button></div>
       <div class="rc-row">${row}</div>
     </div>${side("home", H)}`;
 }
@@ -761,6 +763,12 @@ async function openCam(g) {
     <div class="rotate-hint">Turn your phone sideways for the best video</div>`;
   document.body.appendChild(ov); document.body.classList.add("noscroll");
   REC.canvas = ov.querySelector("#recc"); REC.video = ov.querySelector("#camv");
+  // Screen rec mode: tap anywhere to bring the controls back; they hide again after 5 seconds
+  ov.addEventListener("pointerdown", e => {
+    if (!REC.clean) return;
+    if (ov.classList.contains("clean")) { e.preventDefault(); e.stopPropagation(); unClean(true); }
+    else armClean();
+  }, true);
   refreshLive(g);
   try { await startCamera(); } catch (e) { toast("Camera didn't open. Check that Safari is allowed to use the camera."); console.error(e); }
   try { REC.lock = await navigator.wakeLock?.request("screen"); } catch (e) {}
@@ -826,7 +834,7 @@ function closeCam() {
   if (REC.rec && REC.rec.state === "recording" && !confirm("You're still recording. Stop and close the camera?")) return;
   if (REC.rec && REC.rec.state === "recording") REC.rec.stop();
   cancelAnimationFrame(REC.loop); camExtrasStop(); REC.stream?.getTracks().forEach(t => t.stop()); REC.stream = null;
-  REC.lock?.release?.(); document.getElementById("recov")?.remove(); document.body.classList.remove("noscroll");
+  REC.clean = false; unClean(false); REC.lock?.release?.(); document.getElementById("recov")?.remove(); document.body.classList.remove("noscroll");
 }
 
 // ---------------- stats tab ----------------
@@ -928,6 +936,16 @@ function setQtr(g, q, quiet) {
   }
   persist(); refreshLive(g); toast(Q_LONG[q]);
 }
+function goClean() {
+  const ov = document.getElementById("recov"); if (!ov || !REC.clean) return;
+  if (document.querySelector(".sheet, .savedlg")) return armClean(); // wait until the play sheet / dialog is closed
+  ov.classList.add("clean"); document.body.classList.add("cleanrec");
+}
+function armClean() { clearTimeout(REC.cleanT); if (REC.clean) REC.cleanT = setTimeout(goClean, 5000); }
+function unClean(rearm) {
+  clearTimeout(REC.cleanT); document.getElementById("recov")?.classList.remove("clean"); document.body.classList.remove("cleanrec");
+  if (rearm) armClean();
+}
 // small in-page question box (prompt() would freeze the recording)
 function ask(title, fields, cb) {
   const d = document.createElement("div"); d.className = "savedlg";
@@ -1011,6 +1029,7 @@ const ACT = {
   gStyleRec: (el, g) => { g.style = el.dataset.v; persist(); refreshLive(g); },
   recPage: (el, g) => { REC.page = el.dataset.v; refreshLive(g); },
   recHide: (el, g) => { REC.hide = !REC.hide; refreshLive(g); },
+  cleanScreen: (el, g) => { REC.clean = !REC.clean; refreshLive(g); if (REC.clean) setTimeout(goClean, 1200); else unClean(false); },
   askCancel: el => el.closest(".savedlg").remove(),
   down: (el, g) => { g.s.down = +el.dataset.v; g.s.ddShow = true; persist(); refreshLive(g); },
   nextDown: (el, g) => { const s = g.s; s.down = s.down >= 4 ? 1 : s.down + 1; s.ddShow = true; persist(); refreshLive(g); },
