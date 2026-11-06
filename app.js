@@ -44,6 +44,7 @@ function load() {
 function persist() {
   try { localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
   catch (e) { toast("Phone storage is full. Try smaller logos, or save a backup and delete old games."); }
+  if (typeof remotePushSoon === "function") remotePushSoon();
 }
 const team = id => DB.teams.find(t => t.id === id);
 const game = id => DB.games.find(g => g.id === id);
@@ -97,11 +98,12 @@ function bugState(g, now, styleOverride) {
   S.size = g.bugSize || 1; S.top = g.bugPos === "top";
   S.ddRaw = S.dd ? { down: s.down, toGo: s.toGo, spotNum: g.spotShow !== false && s.pos ? (s.pos <= 50 ? s.pos : 100 - s.pos) : null } : null;
   S.drive = g.driveShow !== false && S.dd && g.plays ? driveText(g) : null;
-  S.wp = g.wpShow !== false && s.qtr !== "FINAL" && g.plays && (g.plays.length || s.away.score || s.home.score) ? winProb(g) : null;
+  S.wp = g.wpShow !== false && s.qtr !== "FINAL" && g.plays && (g.plays.length || g._np || s.away.score || s.home.score) ? winProb(g) : null;
   if (S.banner && S.banner.kind === "intro" && S.banner.recs) { S.away.rec = S.banner.recs.away; S.home.rec = S.banner.recs.home; }
   return S;
 }
 function onClockZero(g) {
+  if (REMOTE.role === "screen") return; // the remote phone runs the clock
   const s = g.s; freezeClock(s);
   if (Q_LONG[s.qtr] && !["HALF", "FINAL"].includes(s.qtr)) banner(g, "to", "End of " + Q_LONG[s.qtr], "", null, 4);
   persist(); refreshLive(g);
@@ -112,7 +114,8 @@ function banner(g, kind, text, sub, side, dur, extra) {
   // a new pop-up replaces any player card that is showing or waiting, so things never pile up
   RT.bq = RT.bq.filter(b => b.gid === g.id && b.kind !== "player");
   if (extra && extra.now) RT.bq = [];
-  RT.bq.push(Object.assign({ gid: g.id, kind, text, sub, team: side, dur: dur || 4, start: null }, extra || {}));
+  const b = Object.assign({ gid: g.id, kind, text, sub, team: side, dur: dur || 4, start: null }, extra || {});
+  RT.bq.push(b); if (typeof remoteBanner === "function") remoteBanner(g, b);
   if (RT.bq.length > 5) RT.bq.splice(1, RT.bq.length - 5);
 }
 function curBanner(g, now) {
@@ -403,6 +406,8 @@ function viewHome() {
     }).join("") : `<p class="empty">No games yet. Make your teams first, then start a game.</p>`}
   </section>
   ${seasonsHomeHTML()}
+  <section class="card"><h2>Second phone</h2><p class="muted">Want only the video and score bug on screen (like on a TV)? Make this phone the camera, and score from another phone.</p>
+    <button class="wide" data-act="beCamera">Be the camera</button></section>
   <section>
     <div class="sechead"><h2>Teams</h2><button data-act="newTeam">+ New team</button></div>
     <div class="teamgrid">
@@ -556,7 +561,7 @@ function controlsHTML(g) {
         <button data-act="timeout" data-side="${side}">Timeout (${s[side].to} left)</button>
       </div>
     </div>`;
-  return `
+  return remoteBarHTML(g) + `
   <section class="card">
     <h2>Log a play <small>updates score, stats, downs and ball spot</small></h2>
     <div class="playbtns">${PLAY_BTNS.map(([v, l]) => `<button class="pb ${v === "penalty" ? "flag" : ""}" data-act="play" data-v="${v}">${l}</button>`).join("")}</div>
@@ -710,9 +715,11 @@ function recordTab(g, el) {
   </section>
   <section class="card"><h2>Highlights <small>clips you saved with the Highlight button</small></h2><div id="clipList"><p class="muted">Loading...</p></div></section>`;
   renderClips(g);
+  document.getElementById("tab").insertAdjacentHTML("beforeend", remoteSetupHTML(g));
 }
 const REC_PAGES = [["game", "Clock"], ["down", "Downs"], ["plays", "Plays"], ["pops", "Pop-ups"], ["look", "Look"]];
 function recControlsHTML(g) {
+  if (REMOTE.role === "screen" && REMOTE.gid === g.id) return screenOverlayHTML(g);
   const s = g.s, A = sideTeam(g, "away"), H = sideTeam(g, "home");
   const quick = `<button data-act="replay" id="rpBtn" class="${REC.replay ? "on" : ""}">${REC.replay ? "End replay" : "Replay"}</button><button data-act="highlight" class="hlbtn" id="hlBtn">${HL.count ? `Highlight (${HL.count})` : "Highlight"}</button>`;
   const cleanBtn = `<button data-act="cleanScreen" class="cleanbtn ${REC.clean ? "on" : ""}">${REC.clean ? "Auto-hide: ON" : "Auto-hide: OFF"}</button>`;
@@ -749,7 +756,7 @@ function recControlsHTML(g) {
     </div>${side("home", H)}`;
 }
 async function openCam(g) {
-  SFX.ensure(); SFX.setCam(true);
+  REC.g = g; SFX.ensure(); SFX.setCam(true);
   const ov = document.createElement("div"); ov.id = "recov"; ov.className = "recov";
   ov.innerHTML = `
     <video id="camv" playsinline muted autoplay></video>
@@ -835,6 +842,7 @@ function showSaveDialog(file) {
 }
 function closeCam() {
   if (REC.rec && REC.rec.state === "recording" && !confirm("You're still recording. Stop and close the camera?")) return;
+  if (REMOTE.role === "screen") stopRemote();
   if (REC.rec && REC.rec.state === "recording") REC.rec.stop();
   cancelAnimationFrame(REC.loop); camExtrasStop(); REC.stream?.getTracks().forEach(t => t.stop()); REC.stream = null;
   REC.clean = false; unClean(false); REC.lock?.release?.(); document.getElementById("recov")?.remove(); document.body.classList.remove("noscroll");
@@ -941,7 +949,7 @@ function setQtr(g, q, quiet) {
 }
 function goClean() {
   const ov = document.getElementById("recov"); if (!ov || !REC.clean) return;
-  if (document.querySelector(".sheet, .savedlg")) return armClean(); // wait until the play sheet / dialog is closed
+  if (document.querySelector(".sheet, .savedlg") || (REMOTE.role === "screen" && REC.g && REC.g.remoteWaiting)) return armClean(); // wait until the play sheet / dialog is closed
   ov.classList.add("clean"); document.body.classList.add("cleanrec");
 }
 function armClean() { clearTimeout(REC.cleanT); if (REC.clean) REC.cleanT = setTimeout(goClean, 5000); }
@@ -1141,7 +1149,7 @@ const CHANGE = {
 document.addEventListener("click", e => {
   const el = e.target.closest("[data-act]"); if (!el) return;
   const fn = ACT[el.dataset.act]; if (!fn) return;
-  e.preventDefault(); fn(el, currentGame());
+  e.preventDefault(); fn(el, currentGame() || (document.getElementById("recov") ? REC.g : null));
 });
 document.addEventListener("input", e => { const k = e.target.dataset.input; if (k && INPUT[k] && e.target.tagName !== "SELECT") INPUT[k](e.target.value, currentGame(), e.target); });
 document.addEventListener("change", e => {
