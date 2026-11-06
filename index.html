@@ -262,6 +262,12 @@ body.cleanrec .mic{display:flex;align-items:center;gap:5px;background:rgba(0,0,0
 .gcdel{position:absolute;top:50%;right:4px;transform:translateY(-50%);background:none;border:0;color:var(--muted);font-size:18px;padding:10px}
 .top.game .hdel{margin-left:auto;color:#ff8a8a;border-color:#5a2323}
 .warn{background:#3a2a08;border:1px solid #7a5a12;color:#ffe2a0;border-radius:10px;padding:8px 10px;font-size:14px}
+.vlist{display:flex;flex-direction:column;gap:6px;max-height:40vh;overflow:auto}
+.vrow{display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid #1a2134}
+.vrow>div{flex:1;min-width:0}.vrow b{display:block;font:800 16px Barlow;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vrow small{color:var(--muted)}
+.vbanner{display:block;background:#5a1717;border:1px solid #b02727;border-radius:14px;padding:12px 14px;margin:12px 0}
+.vbanner b{display:block;font:800 19px Barlow;text-transform:uppercase}.vbanner span{color:#ffd0d0;font-size:14px}
+.vlink{display:inline-block;margin:10px 0 0;color:var(--accent);font-weight:600}
 .toast{display:none}
 .cleanbtn.on{background:rgba(200,16,46,.9)!important;border-color:transparent!important}
 .toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#fff;color:#111;font-weight:600;padding:12px 18px;border-radius:12px;opacity:0;transition:all .25s;z-index:100;max-width:90vw;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.4)}
@@ -270,14 +276,15 @@ body.cleanrec .mic{display:flex;align-items:center;gap:5px;background:rgba(0,0,0
 </head>
 <body>
 <div id="app"></div>
-<div class="ver" hidden>v5.4</div>
-<script src="bug.js?v=10"></script>
-<script src="sfx.js?v=10"></script>
-<script src="app.js?v=10"></script>
-<script src="extras.js?v=10"></script>
-<script src="season.js?v=10"></script>
-<script src="remote.js?v=10"></script>
-<script src="live.js?v=10"></script>
-<script src="clips.js?v=10"></script>
+<div class="ver" hidden>v5.5</div>
+<script src="bug.js?v=11"></script>
+<script src="sfx.js?v=11"></script>
+<script src="app.js?v=11"></script>
+<script src="extras.js?v=11"></script>
+<script src="season.js?v=11"></script>
+<script src="remote.js?v=11"></script>
+<script src="live.js?v=11"></script>
+<script src="vstore.js?v=11"></script>
+<script src="clips.js?v=11"></script>
 </body>
 </html>

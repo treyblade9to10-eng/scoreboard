@@ -380,6 +380,7 @@ function route() {
   if (v === "team") return viewTeam(id);
   if (v === "new") return viewNewGame();
   if (v === "watch") return viewWatch(id);
+  if (v === "videos") return viewVideos();
   if (v === "season" && season(id)) return viewSeason(season(id));
   if (v === "seasonedit") return viewSeasonEdit(id);
   if (v === "game" && game(id)) return viewGame(game(id), tab || "live");
@@ -395,6 +396,7 @@ function viewHome() {
   const games = [...DB.games].sort((a, b) => (b.updated || 0) - (a.updated || 0));
   $app.innerHTML = `
   <header class="top"><div><div class="kicker">Football</div><h1>Scoreboard</h1></div></header>
+  <div id="vidBanner"></div>
   <section>
     <div class="sechead"><h2>Games</h2><button class="primary" data-act="newGame">+ New game</button></div>
     ${games.length ? games.map(g => {
@@ -407,7 +409,7 @@ function viewHome() {
         <button class="gcdel" data-act="delGame" data-v="${g.id}" aria-label="Delete game">✕</button></div>`;
     }).join("") : `<p class="empty">No games yet. Make your teams first, then start a game.</p>`}
   </section>
-  ${seasonsHomeHTML()}
+  ${seasonsHomeHTML()}${homeVideoBanner() && ""}
   <section class="card"><h2>Second phone</h2><p class="muted">Want only the video and score bug on screen (like on a TV)? Make this phone the camera, and score from another phone.</p>
     <div class="row"><button data-act="beCamera">Be the camera</button><button data-act="watchHome">Watch a live game</button></div></section>
   <section>
@@ -717,6 +719,8 @@ function recordTab(g, el) {
   </section>
   <section class="card"><h2>Highlights <small>clips you saved with the Highlight button</small></h2><div id="clipList"><p class="muted">Loading...</p></div></section>`;
   renderClips(g);
+  document.getElementById("tab").insertAdjacentHTML("afterbegin", `<section class="card"><h2>Videos from this game <small>kept here until you delete them</small></h2><div id="vidList"><p class="muted">Loading...</p></div></section>`);
+  renderVideos(document.getElementById("vidList"), g.id);
   document.getElementById("tab").insertAdjacentHTML("beforeend", remoteSetupHTML(g));
 }
 const REC_PAGES = [["game", "Clock"], ["down", "Downs"], ["plays", "Plays"], ["pops", "Pop-ups"], ["look", "Look"]];
@@ -813,24 +817,12 @@ function pickMime() {
   return opts.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) || "";
 }
 function recToggle(g) {
-  if (REC.rec && REC.rec.state === "recording") { REC.rec.stop(); return; }
+  if (REC.rec && REC.rec.state === "recording") { stopSafeRecording(); return; }
   SFX.ensure(); // wake the audio engine on this tap (iPhones pause it until you touch the screen)
   if (!REC.stream || !REC.stream.getAudioTracks().length) toast("No microphone, so this video will have no sound. Allow the microphone for this site in Safari settings.");
   if (!window.MediaRecorder || !REC.canvas.captureStream) return toast("This browser can't record. Update iOS, then try again in Safari.");
   const cs = new MediaStream([...REC.canvas.captureStream(30).getVideoTracks(), ...camAudioTracks()]);
-  const mime = pickMime();
-  try { REC.rec = new MediaRecorder(cs, mime ? { mimeType: mime, videoBitsPerSecond: 8_000_000 } : undefined); }
-  catch (e) { REC.rec = new MediaRecorder(cs); }
-  REC.chunks = [];
-  REC.rec.ondataavailable = e => e.data && e.data.size && REC.chunks.push(e.data);
-  REC.rec.onstop = () => {
-    document.getElementById("recBtn")?.classList.remove("on"); const rt = document.getElementById("recTime"); if (rt) rt.textContent = "";
-    const type = REC.rec.mimeType || mime || "video/mp4";
-    const blob = new Blob(REC.chunks, { type }); const ext = type.includes("mp4") ? "mp4" : "webm";
-    const A = sideTeam(g, "away"), H = sideTeam(g, "home"), stamp = new Date().toTimeString().slice(0, 5).replace(":", "");
-    showSaveDialog(new File([blob], `Scoreboard-${A.abbr}-vs-${H.abbr}-${stamp}.${ext}`, { type }));
-  };
-  REC.rec.start(1000); REC.t0 = Date.now();
+  startSafeRecording(g, cs, pickMime());
   document.getElementById("recBtn").classList.add("on");
 }
 function showSaveDialog(file) {
@@ -845,7 +837,7 @@ function showSaveDialog(file) {
 function closeCam() {
   if (REC.rec && REC.rec.state === "recording" && !confirm("You're still recording. Stop and close the camera?")) return;
   stopLive(); if (REMOTE.role === "screen") stopRemote();
-  if (REC.rec && REC.rec.state === "recording") REC.rec.stop();
+  if (REC.rec && REC.rec.state === "recording") stopSafeRecording();
   cancelAnimationFrame(REC.loop); camExtrasStop(); REC.stream?.getTracks().forEach(t => t.stop()); REC.stream = null;
   REC.clean = false; unClean(false); REC.lock?.release?.(); document.getElementById("recov")?.remove(); document.body.classList.remove("noscroll");
 }
