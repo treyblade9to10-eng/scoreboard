@@ -40,7 +40,8 @@ async function hostOffer(vid, v) {
   LIVE.stream.getTracks().forEach(t => pc.addTrack(t, LIVE.stream));
   pc.onconnectionstatechange = () => {
     if (pc.connectionState === "connected") { P.ok = true; liveUI(); toast("Someone is watching live"); capBitrate(pc); }
-    if (["failed", "closed", "disconnected"].includes(pc.connectionState)) dropPeer(vid);
+    if (["failed", "closed"].includes(pc.connectionState)) dropPeer(vid);
+    if (pc.connectionState === "disconnected") setTimeout(() => { if (pc.connectionState === "disconnected") dropPeer(vid); }, 12000); // short blips can recover
   };
   try {
     await pc.setRemoteDescription({ type: "offer", sdp: v.offer });
@@ -78,11 +79,12 @@ function viewWatch(code) {
     <div class="row"><input id="watchCode" inputmode="numeric" maxlength="4" placeholder="Code" value="${esc(code || "")}" style="flex:1"><button class="primary" data-act="watchGo">Watch</button></div></section>`;
   if (code && code.length === 4) setTimeout(() => ACT.watchGo(), 50);
 }
-async function watch(code) {
+async function watch(code, retry) {
+  if (!retry) W.tries = 0;
   code = String(code || "").replace(/\D/g, ""); if (code.length !== 4) return toast("The code is 4 numbers");
   let room; try { room = await fb("GET", liveUrl(code)); } catch (e) { return fbErr(e); }
   if (!room || !room.host || Date.now() - (room.host.at || 0) > 60000) return toast("That game isn't live right now");
-  stopWatch();
+  const keepTries = W.tries; stopWatch(); W.tries = keepTries;
   const ov = document.createElement("div"); ov.id = "watchov"; ov.className = "watchov";
   ov.innerHTML = `<video id="watchv" playsinline autoplay muted></video><div class="w-top"><button class="x" data-act="watchClose">✕</button><span class="w-live">LIVE</span><span class="w-title">${esc(room.title || "")}</span></div>
     <div class="w-msg" id="wMsg">Connecting...</div><button class="w-sound" id="wSound" data-act="watchSound">Tap for sound</button>`;
@@ -94,8 +96,12 @@ async function watch(code) {
   pc.ontrack = e => { ms.addTrack(e.track); v.play().catch(() => {}); };
   pc.onconnectionstatechange = () => {
     if (pc.connectionState === "connected") msg("");
-    if (pc.connectionState === "failed") msg("Couldn't connect. Some networks block live video between phones. Try the same Wi-Fi, or another network.");
-    if (pc.connectionState === "disconnected" || pc.connectionState === "closed") msg("The stream ended");
+    if (pc.connectionState === "connected") W.tries = 0;
+    if (pc.connectionState === "disconnected") msg("Signal dropped, reconnecting...");
+    if (pc.connectionState === "failed" && W.pc === pc) {
+      if ((W.tries || 0) < 3) { W.tries = (W.tries || 0) + 1; msg(`Reconnecting (try ${W.tries} of 3)...`); setTimeout(() => { if (W.pc === pc) watch(code, true); }, 2000); }
+      else msg("Couldn't connect. Some networks block live video between phones. Try Wi-Fi on both, then tap ✕ and watch again.");
+    }
   };
   await pc.setLocalDescription(await pc.createOffer()); await iceDone(pc);
   try { await fb("PUT", liveUrl(code, "/viewers/" + W.vid), { at: Date.now(), offer: pc.localDescription.sdp }); } catch (e) { return fbErr(e); }
