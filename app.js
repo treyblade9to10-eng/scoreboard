@@ -167,13 +167,13 @@ function logoColors(image) {
   return res;
 }
 // shrink an uploaded logo so it fits in phone storage
-function shrinkImage(file) {
+function shrinkImage(file, maxSide) {
   return new Promise((ok, bad) => {
     const r = new FileReader();
     r.onload = () => {
       const i = new Image();
       i.onload = () => {
-        const max = 320, k = Math.min(1, max / Math.max(i.width, i.height));
+        const max = maxSide || 320, k = Math.min(1, max / Math.max(i.width, i.height));
         const c = document.createElement("canvas"); c.width = Math.round(i.width * k); c.height = Math.round(i.height * k);
         c.getContext("2d").drawImage(i, 0, 0, c.width, c.height);
         ok(c.toDataURL("image/png"));
@@ -379,6 +379,7 @@ function route() {
   const [v, id, tab] = parts;
   if (v === "team") return viewTeam(id);
   if (v === "new") return viewNewGame();
+  if (v === "import") return viewImport(id, tab);
   if (v === "watch") return viewWatch(id);
   if (v === "videos") return viewVideos();
   if (v === "season" && season(id)) return viewSeason(season(id));
@@ -413,7 +414,7 @@ function viewHome() {
   <section class="card"><h2>Second phone</h2><p class="muted">Want only the video and score bug on screen (like on a TV)? Make this phone the camera, and score from another phone.</p>
     <div class="row"><button data-act="beCamera">Be the camera</button><button data-act="watchHome">Watch a live game</button></div></section>
   <section>
-    <div class="sechead"><h2>Teams</h2><button data-act="newTeam">+ New team</button></div>
+    <div class="sechead"><h2>Teams</h2><div class="btns"><button data-act="importTeam">Import</button><button data-act="newTeam">+ New team</button></div></div>
     <div class="teamgrid">
       ${DB.teams.map(T => `<a class="teamcard" href="#/team/${T.id}" style="--c1:${T.c1};--c2:${T.c2}">
         ${T.logo ? `<img src="${T.logo}" alt="">` : `<b class="ab">${esc(T.abbr)}</b>`}
@@ -482,7 +483,7 @@ function drawTeamPreview() {
 
 function viewNewGame() {
   if (DB.teams.length < 2) { $app.innerHTML = `<header class="top"><button class="back" data-act="backHome">‹ Back</button><h1>New game</h1></header>
-    <section><p>You need at least two teams first.</p><button class="primary" data-act="newTeam">+ Make a team</button></section>`; return; }
+    <section><p>You need at least two teams first.</p><div class="row"><button class="primary" data-act="newTeam">+ Make a team</button><button data-act="importTeam">Import from NFL Rebuilder</button></div></section>`; return; }
   const opts = sel => DB.teams.map(T => `<option value="${T.id}" ${T.id === sel ? "selected" : ""}>${esc(T.name)} (${esc(T.abbr)})</option>`).join("");
   const NG = window.NG = window.NG || { awayId: DB.teams[0].id, homeId: DB.teams[1].id, style: "prime", qLen: 12, title: "", seasonId: "" };
   $app.innerHTML = `

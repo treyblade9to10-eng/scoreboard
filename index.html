@@ -79,6 +79,39 @@ input,select{font:16px -apple-system,sans-serif;color:var(--text);background:#0d
 .backup .row .btn{flex:1}
 /* team editor */
 .tprev{width:100%;border-radius:14px;display:block;background:#111}
+/* import from NFL Rebuilder */
+.sechead .btns{display:flex;gap:8px}
+.implist{display:flex;flex-direction:column;gap:8px}
+.impsrc{width:100%;justify-content:flex-start;gap:12px;padding:10px 12px;text-align:left;background:linear-gradient(100deg,color-mix(in srgb,var(--c1) 55%,var(--card)),var(--card) 70%)}
+.impsrc img{width:46px;height:46px;object-fit:contain;flex:none}
+.impsrc>b{width:46px;height:46px;display:grid;place-items:center;font:800 18px Barlow;flex:none}
+.impsrc span{display:flex;flex-direction:column;font:800 20px Barlow;text-transform:uppercase;line-height:1.1}
+.impsrc small{font:700 12px -apple-system,sans-serif;color:var(--accent);letter-spacing:.08em}
+.impsrc i{font:500 13px -apple-system,sans-serif;color:var(--muted);text-transform:none;font-style:normal}
+#impCode+button{white-space:nowrap}
+section .addp:has(#impCode){grid-template-columns:1fr auto}
+button.teamcard{border:0;border-bottom:5px solid var(--c2);position:relative;font:inherit;width:100%;justify-content:flex-start}
+.teamcard em{position:absolute;top:7px;left:7px;font:800 11px Barlow;letter-spacing:.08em;text-transform:uppercase;background:var(--accent);color:#111;padding:2px 6px;border-radius:5px;font-style:normal}
+.teamcard em.have{background:rgba(0,0,0,.55);color:#fff}
+.imphero{display:flex;align-items:center;gap:14px;padding:16px;border-radius:18px;background:linear-gradient(135deg,var(--c1),color-mix(in srgb,var(--c1) 55%,#000));border-bottom:6px solid var(--c2)}
+.imphero img,.imphero .ab{width:92px;height:92px;object-fit:contain;flex:none;filter:drop-shadow(0 4px 8px rgba(0,0,0,.45))}
+.imphero .ab{display:grid;place-items:center;font:800 34px Barlow;color:#fff}
+.imphero .kicker{font:800 13px Barlow;letter-spacing:.25em;color:#fff;opacity:.8;text-transform:uppercase}
+.imphero h2{font-size:27px;margin:2px 0 4px;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.5);line-height:1.05}
+.imphero p{margin:0;font:700 15px -apple-system,sans-serif;color:#fff}
+.imphero small{color:rgba(255,255,255,.75);font-size:13px}
+.imphero+.tprev{margin-top:10px}
+.implayers{display:flex;flex-direction:column;gap:5px}
+.ip{width:100%;justify-content:flex-start;gap:10px;padding:8px 10px;text-align:left;opacity:.45}
+.ip.on{opacity:1;background:var(--card);border-color:var(--line);box-shadow:none}
+.ip .tick{width:20px;height:20px;border-radius:6px;border:2px solid #3a4666;flex:none}
+.ip.on .tick{background:var(--accent);border-color:var(--accent);box-shadow:inset 0 0 0 3px var(--card)}
+.ip b{font:800 19px Barlow;width:40px}.ip span{flex:1;font-weight:600}
+.ip small{color:var(--muted);font-weight:700;font-size:13px;width:92px;text-align:right}
+.ip em{font:800 11px Barlow;font-style:normal;padding:1px 5px;border-radius:4px;background:#7d2323;color:#fff;letter-spacing:.05em}
+.ip em.st{background:#2f3d63}
+.ip strong{font:800 18px Barlow;width:30px;text-align:right;color:var(--accent)}
+.impold{margin-top:16px}.impold p{margin:6px 0 10px}
 .logo-up{display:flex;gap:14px;margin-top:14px;align-items:flex-start}
 .logo-box{width:120px;height:120px;flex:none;border-radius:18px;background:var(--c1);display:grid;place-items:center;border:2px dashed rgba(255,255,255,.35);overflow:hidden;cursor:pointer}
 .logo-box img{width:86%;height:86%;object-fit:contain}
@@ -276,15 +309,17 @@ body.cleanrec .mic{display:flex;align-items:center;gap:5px;background:rgba(0,0,0
 </head>
 <body>
 <div id="app"></div>
-<div class="ver" hidden>v5.6</div>
-<script src="bug.js?v=12"></script>
-<script src="sfx.js?v=12"></script>
-<script src="app.js?v=12"></script>
-<script src="extras.js?v=12"></script>
-<script src="season.js?v=12"></script>
-<script src="remote.js?v=12"></script>
-<script src="live.js?v=12"></script>
-<script src="vstore.js?v=12"></script>
-<script src="clips.js?v=12"></script>
+<div class="ver" hidden>v5.7</div>
+<script src="bug.js?v=13"></script>
+<script src="sfx.js?v=13"></script>
+<script src="app.js?v=13"></script>
+<script src="extras.js?v=13"></script>
+<script src="season.js?v=13"></script>
+<script src="remote.js?v=13"></script>
+<script src="live.js?v=13"></script>
+<script src="lib/lz-string.min.js?v=1"></script>
+<script src="import.js?v=13"></script>
+<script src="vstore.js?v=13"></script>
+<script src="clips.js?v=13"></script>
 </body>
 </html>
