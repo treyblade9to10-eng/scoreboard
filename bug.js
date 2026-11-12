@@ -92,6 +92,8 @@
   function para(ctx, x, y, w, h, k) { ctx.beginPath(); ctx.moveTo(x + k, y); ctx.lineTo(x + w + k, y); ctx.lineTo(x + w, y + h); ctx.lineTo(x, y + h); ctx.closePath(); }
   function shadowOn(ctx, u, a = .5) { ctx.shadowColor = `rgba(0,0,0,${a})`; ctx.shadowBlur = 18 * u; ctx.shadowOffsetY = 6 * u; }
   const ballTeam = S => S.away.ball ? S.away : S.home.ball ? S.home : null;
+  // a team color that shows up on a dark panel (c1, or c2 when c1 is near black)
+  const accent = T => !T ? "#8d97b0" : lum(T.c1) > .035 ? T.c1 : lum(T.c2) > .035 ? T.c2 : "#8d97b0";
 
   // ---------- Style 1: PRIME (FOX-inspired, team-color bar + yellow down) ----------
   function prime(ctx, W, H, S, now, L) {
@@ -178,9 +180,11 @@
     if (ddW) {
       const dx = x0 + barW + gap;
       ctx.save(); ctx.shadowColor = "rgba(0,0,0,.5)"; ctx.shadowBlur = 20 * u; ctx.shadowOffsetY = 8 * u;
-      rr(ctx, dx, y, ddW, h, 8 * u); ctx.fillStyle = vgrad(ctx, y, h, "#f2662a", "#c23b0b"); ctx.fill(); ctx.restore();
-      ctx.fillStyle = "rgba(255,255,255,.12)"; rr(ctx, dx, y, ddW, h * .45, 8 * u); ctx.fill();
-      ddText(ctx, S, dx, y, ddW, h, u, "SairaC", "#fff", "#ffe2d2");
+      rr(ctx, dx, y, ddW, h, 8 * u); ctx.fillStyle = vgrad(ctx, y, h, "#2c3039", "#0b0c10"); ctx.fill(); ctx.restore();
+      ctx.save(); rr(ctx, dx, y, ddW, h, 8 * u); ctx.clip();
+      ctx.fillStyle = "rgba(255,255,255,.06)"; ctx.fillRect(dx, y, ddW, h * .45);
+      ctx.fillStyle = accent(ballTeam(S)); ctx.fillRect(dx, y + h - 5 * u, ddW, 5 * u); ctx.restore();
+      ddText(ctx, S, dx, y, ddW, h, u, "SairaC", "#fff", "#a9adb8");
     }
     return { x: x0, w: total, h };
   }
@@ -209,11 +213,11 @@
       x += teamW;
       if (side === "away") { ctx.fillStyle = "#111"; ctx.fillRect(x, y, 5 * u, h); x += 5 * u; }
     }
-    ctx.fillStyle = vgrad(ctx, y, h, "#163a85", "#0a2560"); ctx.fillRect(x, y, clockW, h);
+    ctx.fillStyle = vgrad(ctx, y, h, "#2b2e35", "#121418"); ctx.fillRect(x, y, clockW, h);
     const c = clockStr(S);
     if (c.c) {
       ctx.font = `500 ${48 * u}px Teko`; text(ctx, c.q, x + 24 * u, y + h / 2 + 5 * u, "#fff");
-      text(ctx, c.c, x + clockW - 22 * u, y + h / 2 + 5 * u, S.running ? "#fff" : "#ffcc00", "right");
+      text(ctx, c.c, x + clockW - 22 * u, y + h / 2 + 5 * u, S.running ? "#fff" : "#9aa1ad", "right");
     } else { fit(ctx, c.q, 500, 48 * u, "Teko", clockW - 30 * u); text(ctx, c.q, x + clockW / 2, y + h / 2 + 5 * u, "#fff", "center"); }
     ctx.restore();
     if (S.dd) {
@@ -221,9 +225,9 @@
       ctx.font = `500 ${36 * u}px Teko`; const tw = Math.max(clockW, ctx.measureText(ddS).width + 44 * u);
       const dx = x0 + total - tw, dy = y + h - 2 * u, dh = 44 * u;
       ctx.save(); ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 12 * u; ctx.shadowOffsetY = 5 * u;
-      rr(ctx, dx, dy, tw, dh, 6 * u); ctx.fillStyle = "#0a2560"; ctx.fill(); ctx.restore();
-      ctx.fillStyle = "#0a2560"; ctx.fillRect(dx, dy, tw, 8 * u);
-      ctx.fillStyle = "#ffcc00"; ctx.fillRect(dx, dy + 2 * u, tw, 4 * u);
+      rr(ctx, dx, dy, tw, dh, 6 * u); ctx.fillStyle = "#121418"; ctx.fill(); ctx.restore();
+      ctx.fillStyle = "#121418"; ctx.fillRect(dx, dy, tw, 8 * u);
+      ctx.fillStyle = accent(ballTeam(S)); ctx.fillRect(dx, dy + 2 * u, tw, 4 * u);
       text(ctx, ddS, dx + tw / 2, dy + dh / 2 + 6 * u, "#fff", "center");
     }
     return { x: x0, w: total, h: h + (S.dd ? 44 * u : 0) };
@@ -337,10 +341,13 @@
     const c = clockStr(S);
     if (c.c) {
       ctx.font = `500 ${24 * u}px Teko`; text(ctx, c.q + " QTR", x + clockW / 2, iy + 16 * u, "#c9ccd3", "center");
-      glow(c.c, x + clockW / 2, iy + ih / 2 + 14 * u, 46 * u, S.running ? "#ff5a36" : "#ffb02e");
+      glow(c.c, x + clockW / 2, iy + ih / 2 + 14 * u, 46 * u, S.running ? "#ffb02e" : "#e8e2d0");
     } else glow(c.q, x + clockW / 2, iy + ih / 2 + 6 * u, 40 * u, "#ffb02e");
     x += clockW + pad;
-    if (ddW) { rr(ctx, x, iy, ddW, ih, 6 * u); ctx.fillStyle = vgrad(ctx, iy, ih, "#d42a20", "#8f140e"); ctx.fill(); ddText(ctx, S, x, iy, ddW, ih, u, "Teko", "#fff", "#ffd9a8", 6); }
+    if (ddW) {
+      rr(ctx, x, iy, ddW, ih, 6 * u); ctx.fillStyle = "#0a0a0a"; ctx.fill();
+      ctx.save(); ctx.shadowColor = "#ffb02e"; ctx.shadowBlur = 12 * u; ddText(ctx, S, x, iy, ddW, ih, u, "Teko", "#ffb02e", "#e8e2d0", 6); ctx.restore();
+    }
     return { x: x0, w: total, h };
   }
 
