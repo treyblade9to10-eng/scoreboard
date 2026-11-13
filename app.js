@@ -623,12 +623,37 @@ function numField(key, label) {
     <input id="num_${key}" inputmode="numeric" pattern="-?[0-9]*" value="${esc(PS[key])}" data-input="num" data-k="${key}" placeholder="0">
     <button data-act="yd" data-k="${key}" data-v="1">+1</button><button data-act="yd" data-k="${key}" data-v="5">+5</button></div>`;
 }
+// which positions show up for each pick: offense on pass/run, defense on tackles/sacks/picks, kickers on kicks.
+// Players with no position (made by hand) always show. Listed positions come first, in this order.
+const POS_OFF = ["QB", "RB", "HB", "FB", "WR", "TE", "OT", "OL", "T", "G", "OG", "C"];
+const POS_DEF = ["DE", "EDGE", "DT", "DL", "NT", "LB", "MLB", "OLB", "ILB", "CB", "DB", "S", "FS", "SS"];
+const POS_K = ["K", "P", "LS"];
+const PICK_POS = {
+  passer: ["QB", "RB", "HB", "WR", "TE", "FB"], target: ["WR", "TE", "RB", "HB", "FB", "QB"], runner: ["RB", "HB", "FB", "QB", "WR", "TE"], player: ["QB", "RB", "HB", "WR", "TE", "FB"],
+  tackler: POS_DEF, defender: POS_DEF, kicker: ["K", "P"],
+  returner: ["WR", "RB", "HB", "CB", "S", "FS", "SS", "DB", "TE", "FB", "LB"],
+};
+const shortName = n => { const w = String(n || "").split(" ").filter(Boolean); while (w.length > 1 && /^(jr|sr|ii|iii|iv|v)\.?$/i.test(w[w.length - 1])) w.pop(); return w[w.length - 1] || ""; };
+const posOf = p => String(p.pos || "").toUpperCase().trim();
+function pickList(roster, key) {
+  let want = PICK_POS[key];
+  if (key === "passer" || key === "target" || key === "runner" || key === "player") want = want.concat(POS_OFF.filter(x => !want.includes(x)));
+  if (!want) return { list: roster, hidden: 0 };
+  const rank = p => { const i = want.indexOf(posOf(p)); return i < 0 ? 99 : i; };
+  const ok = p => !posOf(p) || want.includes(posOf(p));
+  const list = roster.filter(ok).sort((a, b) => (posOf(a) ? rank(a) : 98) - (posOf(b) ? rank(b) : 98) || a.num - b.num);
+  return { list, hidden: roster.length - list.length };
+}
 function picker(g, side, key, label, optional) {
   const T = sideTeam(g, side), sel = PS[key];
   const roster = [...(team(T.id)?.roster || [])].sort((a, b) => a.num - b.num);
+  const all = PS.all && PS.all[key];
+  let { list, hidden } = all ? { list: roster, hidden: 0 } : pickList(roster, key);
+  if (sel && !list.some(p => p.id === sel.id)) { const sp = roster.find(p => p.id === sel.id); if (sp) { list = [sp, ...list]; hidden--; } }
   return `<div class="pk" data-pk="${key}"><div class="lbl">${label}${optional ? " <i>(optional)</i>" : ""}</div><div class="chips">
     ${optional ? `<button class="${!sel ? "on" : ""}" data-act="pk" data-k="${key}" data-v="">None</button>` : ""}
-    ${roster.map(p => `<button class="${sel && sel.id === p.id ? "on" : ""}" data-act="pk" data-k="${key}" data-v="${p.id}" data-side="${side}"><b>#${esc(p.num)}</b> ${esc(p.name.split(" ").slice(-1)[0] || "")}</button>`).join("")}
+    ${list.map(p => `<button class="${sel && sel.id === p.id ? "on" : ""}" data-act="pk" data-k="${key}" data-v="${p.id}" data-side="${side}"><b>#${esc(p.num)}</b> ${esc(shortName(p.name))}${posOf(p) ? `<small class="ppos">${esc(posOf(p))}</small>` : ""}</button>`).join("")}
+    ${hidden > 0 ? `<button class="more" data-act="pkAll" data-k="${key}">Everyone (+${hidden})</button>` : ""}
     <button class="add" data-act="pkAdd" data-k="${key}" data-side="${side}">+ New</button></div></div>`;
 }
 function seg(key, opts) {
@@ -690,7 +715,7 @@ function savePlay(g) {
   if (PS.type === "pass" && PS.result === "comp") need.push("target");
   if (PS.type === "pass" && PS.result === "int") need.push("defender");
   for (const k of need) if (!PS[k]) return toast("Pick a player first (or tap + New)");
-  const p = Object.assign({}, PS);
+  const p = Object.assign({}, PS); delete p.all;
   p.yards = parseInt(PS.yards, 10) || 0; p.ret = parseInt(PS.ret, 10) || 0;
   p.td = PS.td === true || PS.td === "true"; p.good = PS.good === true || PS.good === "true"; p.fumble = PS.fumble === true || PS.fumble === "true"; p.auto = PS.auto === true || PS.auto === "true";
   if (p.td) p.fumble = false;
@@ -1086,6 +1111,7 @@ const ACT = {
     const T = team(sideTeam(g, el.dataset.side).id); const p = T.roster.find(r => r.id === el.dataset.v);
     PS[k] = { id: p.id, num: p.num, name: p.name }; renderSheet(g);
   },
+  pkAll: (el, g) => { PS.all = PS.all || {}; PS.all[el.dataset.k] = 1; renderSheet(g); },
   pkAdd: (el, g) => {
     const T = team(sideTeam(g, el.dataset.side).id); if (!T) return; const k = el.dataset.k;
     ask(`New ${T.abbr} player`, [{ k: "num", label: "Jersey number", mode: "numeric" }, { k: "name", label: "Name (optional)" }], r => {

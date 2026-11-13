@@ -185,6 +185,9 @@ button:disabled{opacity:.35}
 .chips button{padding:9px 11px;font-size:15px;font-weight:500}
 .chips button b{font-family:Barlow;font-size:17px}
 .chips button.add{border-style:dashed;color:var(--accent)}
+.chips button .ppos{font:800 12px Barlow;letter-spacing:.04em;color:var(--muted);margin-left:5px;padding:1px 4px;border-radius:4px;background:rgba(255,255,255,.07)}
+.chips button.on .ppos{color:var(--accent)}
+.chips button.more{border-style:dashed;color:var(--muted)}
 .yds{display:grid;grid-template-columns:1fr 1fr 1.5fr 1fr 1fr;gap:6px}
 .yds input{text-align:center;font:800 26px Barlow;padding:6px}
 /* record overlay */
@@ -309,10 +312,10 @@ body.cleanrec .mic{display:flex;align-items:center;gap:5px;background:rgba(0,0,0
 </head>
 <body>
 <div id="app"></div>
-<div class="ver" hidden>v5.8</div>
+<div class="ver" hidden>v5.9</div>
 <script src="bug.js?v=14"></script>
 <script src="sfx.js?v=13"></script>
-<script src="app.js?v=13"></script>
+<script src="app.js?v=14"></script>
 <script src="extras.js?v=13"></script>
 <script src="season.js?v=13"></script>
 <script src="remote.js?v=13"></script>
