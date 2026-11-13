@@ -1,7 +1,7 @@
 // Video safety: recordings are written to the phone's storage every 2 seconds while you film,
-// and split into 10-minute parts. If Safari crashes, reloads, or you tap Done by mistake, the video is still here.
+// and split into 5-minute parts (smaller files save to Photos more reliably). If Safari crashes, reloads, or you tap Done by mistake, the video is still here.
 const VS = {
-  p: null, PART_MS: 10 * 60 * 1000,
+  p: null, PART_MS: 5 * 60 * 1000,
   open() { return this.p = this.p || new Promise((ok, bad) => { const r = indexedDB.open("scoreboard-video", 1); r.onupgradeneeded = () => { const d = r.result; d.createObjectStore("parts", { keyPath: "id" }); d.createObjectStore("chunks", { autoIncrement: true }).createIndex("pid", "pid"); }; r.onsuccess = () => ok(r.result); r.onerror = () => bad(r.error); }); },
   async tx(stores, mode, fn) { const d = await this.open(); return new Promise((ok, bad) => { const t = d.transaction(stores, mode); let out; const r = fn(t); if (r && "onsuccess" in r) r.onsuccess = () => out = r.result; t.oncomplete = () => ok(out); t.onerror = () => bad(t.error); t.onabort = () => bad(t.error); }); },
   putPart(p) { return this.tx(["parts"], "readwrite", t => t.objectStore("parts").put(p)); },
@@ -71,6 +71,7 @@ async function storageCheck() {
 const fmtDur = s => s >= 3600 ? `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}` : fmtClock(s);
 async function showRecordingDialog(rid, g) {
   const parts = (await VS.parts()).filter(p => p.rid === rid).sort((a, b) => a.n - b.n);
+  prepAll(parts);
   const d = document.createElement("div"); d.className = "savedlg";
   d.innerHTML = `<div class="savedlg-in"><h3>Video saved on this phone</h3>
     <p class="muted">It's kept in Scoreboard until you delete it, so it's safe even if you close this. Tap <b>Save to Photos</b> and pick <b>Save Video</b>.${parts.length > 1 ? ` Long videos are split into ${parts.length} parts.` : ""}</p>
@@ -79,18 +80,51 @@ async function showRecordingDialog(rid, g) {
     <button class="ghost" data-act="closeDlg">Done</button></div>`;
   document.body.appendChild(d);
 }
+const VP = {};
 function partRow(p) {
+  VP[p.id] = p;
   const secs = p.secs || Math.round(((p.ended || p.started) - p.started) / 1000);
   return `<div class="vrow"><div><b>${esc(p.label || "Video")}${p.n > 1 || p.multi ? ` · part ${p.n}` : ""}</b><small>${new Date(p.started).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} · ${fmtDur(secs)}${p.saved ? " · saved to Photos" : ""}${!p.done ? " · recovered (about)" : ""}</small></div>
-    <button class="small" data-act="vWatch" data-v="${p.id}">Watch</button><button class="small ${p.saved ? "" : "primary"}" data-act="vSave" data-v="${p.id}">Save to Photos</button><button class="small x" data-act="vDel" data-v="${p.id}">✕</button></div>`;
+    <button class="small" data-act="vWatch" data-v="${p.id}">Watch</button><button class="small ${p.saved ? "" : "primary"}" data-act="vSave" data-v="${p.id}">Save to Photos</button><button class="small" data-act="vFile" data-v="${p.id}">Files</button><button class="small x" data-act="vDel" data-v="${p.id}">✕</button></div>`;
 }
-async function sharePart(p) {
-  const f = await VS.file(p);
+// iPhone only opens the Save sheet if it happens right when you tap. Reading a big video out of
+// storage takes a few seconds, so the files are loaded ahead of time (when the list shows up).
+const VF = {};
+function prepFile(p) { return VF[p.id] = VF[p.id] || VS.file(p).then(f => (VF[p.id] = f)).catch(() => { delete VF[p.id]; return null; }); }
+function prepAll(parts) { parts.forEach(prepFile); }
+const ready = p => VF[p.id] instanceof File ? VF[p.id] : null;
+async function sharePart(p, btn) {
+  let f = ready(p);
+  if (!f) { // not loaded yet: load it, then ask for one more tap
+    if (btn) { btn.textContent = "Getting it ready..."; btn.disabled = true; }
+    f = await prepFile(p);
+    if (btn) { btn.disabled = false; btn.textContent = "Tap again to save"; }
+    if (!f) toast("Couldn't read that video. Try again.");
+    return;
+  }
   if (!f.size) return toast("That part is empty");
   if (navigator.canShare && navigator.canShare({ files: [f] })) {
-    try { await navigator.share({ files: [f] }); p.saved = true; await VS.putPart(p); }
-    catch (e) { if (e.name !== "AbortError") { toast("Couldn't open Save. Try Download instead."); dl(f); } }
-  } else { dl(f); p.saved = true; await VS.putPart(p); }
+    try { await navigator.share({ files: [f] }); askSaved([p]); }
+    catch (e) { if (e.name !== "AbortError") saveFailed([p]); }
+  } else saveFailed([p]);
+}
+// we can't see your Photos, so never assume it saved: ask
+function askSaved(parts) {
+  const d = document.createElement("div"); d.className = "savedlg";
+  d.innerHTML = `<div class="savedlg-in"><h3>Is it in Photos?</h3>
+    <p class="muted">Open Photos and check that the whole video is there before you delete anything here.</p>
+    <button class="primary big" data-act="vYes">Yes, it's in Photos</button>
+    <button data-act="vNo">No, it didn't save</button></div>`;
+  d._parts = parts; document.body.appendChild(d);
+}
+function saveFailed(parts) {
+  const d = document.createElement("div"); d.className = "savedlg";
+  d.innerHTML = `<div class="savedlg-in"><h3>Save didn't open</h3>
+    <p class="muted">Your video is still safe here. Try one of these:</p>
+    <button class="primary big" data-act="vFiles">Save to Files instead</button>
+    <p class="muted">That puts it in the Files app (Downloads). From there, open it, tap Share, then Save Video.</p>
+    <button class="ghost" data-act="closeDlg">Close</button></div>`;
+  d._parts = parts; document.body.appendChild(d);
 }
 function dl(f) { const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name; a.click(); }
 async function renderVideos(el, gid) {
@@ -98,7 +132,7 @@ async function renderVideos(el, gid) {
   let parts = []; try { parts = await VS.parts(); } catch (e) { el.innerHTML = `<p class="muted">Saved videos aren't available in this browser.</p>`; return; }
   parts = parts.filter(p => !gid || p.gid === gid).sort((a, b) => b.started - a.started);
   const live = VR.part && VR.part.meta.id;
-  parts = parts.filter(p => p.id !== live);
+  parts = parts.filter(p => p.id !== live); prepAll(parts);
   const est = await navigator.storage?.estimate?.().catch(() => null);
   el.innerHTML = parts.length ? `${parts.map(partRow).join("")}${est ? `<p class="muted">Videos use about ${(est.usage / 1e9).toFixed(1)} GB on this phone. Delete ones you've saved to Photos to free space.</p>` : ""}`
     : `<p class="muted">No videos yet. Everything you record shows up here, even if you forget to save it.</p>`;
@@ -116,16 +150,21 @@ async function homeVideoBanner() {
 const vRefresh = () => { if (location.hash === "#/videos") viewVideos(); else { const g = currentGame(); renderVideos(document.getElementById("vidList"), g && g.id); } };
 Object.assign(ACT, {
   vWatch: async el => { const p = (await VS.parts()).find(x => x.id === el.dataset.v); if (!p) return; const f = await VS.file(p); showSaveDialog(f); },
-  vSave: async el => { const p = (await VS.parts()).find(x => x.id === el.dataset.v); if (p) { await sharePart(p); vRefresh(); const d = el.closest(".savedlg"); if (d) d.querySelector(`[data-v="${p.id}"].primary`)?.classList.remove("primary"); } },
-  vSaveAll: async el => {
-    const parts = (await VS.parts()).filter(p => p.rid === el.dataset.v).sort((a, b) => a.n - b.n), files = await Promise.all(parts.map(p => VS.file(p)));
-    if (navigator.canShare && navigator.canShare({ files })) { try { await navigator.share({ files }); for (const p of parts) { p.saved = true; await VS.putPart(p); } } catch (e) { if (e.name !== "AbortError") files.forEach(dl); } }
-    else files.forEach(dl);
-    vRefresh();
+  // no awaits before share: the parts list is kept in VP so the tap still counts on iPhone
+  vSave: el => { const p = VP[el.dataset.v]; if (p) sharePart(p, el); else VS.parts().then(a => { a.forEach(x => VP[x.id] = x); toast("Tap Save again"); }); },
+  vFile: async el => { const p = VP[el.dataset.v] || (await VS.parts()).find(x => x.id === el.dataset.v); if (!p) return; const f = ready(p) || await prepFile(p); if (f) { dl(f); toast("Check the Files app, Downloads folder"); } },
+  vSaveAll: el => {
+    const parts = Object.values(VP).filter(p => p.rid === el.dataset.v).sort((a, b) => a.n - b.n), files = parts.map(ready);
+    if (!parts.length || files.some(f => !f)) { parts.forEach(prepFile); toast("Getting the videos ready. Tap again in a few seconds."); return; }
+    if (navigator.canShare && navigator.canShare({ files })) navigator.share({ files }).then(() => askSaved(parts), e => { if (e.name !== "AbortError") saveFailed(parts); });
+    else saveFailed(parts);
   },
+  vYes: async el => { const d = el.closest(".savedlg"); for (const p of d._parts) { p.saved = true; await VS.putPart(p); } d.remove(); vRefresh(); toast("Marked as saved"); },
+  vNo: el => { const d = el.closest(".savedlg"), parts = d._parts; d.remove(); saveFailed(parts); },
+  vFiles: el => { const d = el.closest(".savedlg"); d._parts.forEach(p => { const f = ready(p); if (f) dl(f); }); d.remove(); toast("Check the Files app, Downloads folder"); },
   vDel: async el => {
     const p = (await VS.parts()).find(x => x.id === el.dataset.v); if (!p) return;
-    if (!confirm(p.saved ? "Delete this video from Scoreboard? (Your copy in Photos stays.)" : "This video is NOT saved to Photos yet. Delete it forever?")) return;
+    if (!confirm(p.saved ? "Only delete this if you can see the whole video in Photos. Delete it from Scoreboard?" : "This video is NOT saved to Photos yet. Delete it forever?")) return;
     await VS.del(p.id); el.closest(".vrow")?.remove(); vRefresh();
   },
 });
